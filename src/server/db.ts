@@ -1,0 +1,120 @@
+import Database from "better-sqlite3";
+import { mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { config } from "./config.js";
+
+const path = resolve(config.dbPath);
+mkdirSync(dirname(path), { recursive: true });
+
+export const db = new Database(path);
+db.pragma("journal_mode = WAL");
+db.pragma("busy_timeout = 5000");
+db.pragma("synchronous = NORMAL");
+db.pragma("foreign_keys = ON");
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  email TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'unknown',
+  last_checked_at INTEGER,
+  last_refreshed_at INTEGER,
+  expires_at INTEGER,
+  last_error TEXT,
+  fail_count INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  cookies_enc TEXT NOT NULL,
+  cookie_count INTEGER NOT NULL,
+  captured_at INTEGER NOT NULL,
+  expires_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_snap_acc ON snapshots(account_id, id DESC);
+
+-- Katalog app (Netflix, Canva, dst.) dari GET /extensions/init/full.
+-- Aman disinkron otomatis -- hanya metadata, tidak menyentuh kuota per-app.
+CREATE TABLE IF NOT EXISTS portal_apps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  app_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT,
+  target_type TEXT,
+  logo TEXT,
+  url TEXT,
+  note TEXT,
+  is_desktop_only INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_synced_at INTEGER NOT NULL,
+  UNIQUE(account_id, app_id)
+);
+
+-- Item/slot akun per app (mis. "Netflix 5", "Netflix 6", ...).
+CREATE TABLE IF NOT EXISTS portal_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  app_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  item_name TEXT,
+  url TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_synced_at INTEGER NOT NULL,
+  last_fetched_at INTEGER,
+  last_cookie_count INTEGER,
+  last_error TEXT,
+  UNIQUE(account_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_items_app ON portal_items(account_id, app_id);
+
+-- Hasil fetch cookie per item -- HANYA terisi lewat aksi manual "Get" di
+-- dashboard (lihat accounts.ts/server.ts), tidak pernah lewat worker otomatis,
+-- supaya tidak melanggar limit harian per-app (mis. Netflix 10x/24 jam).
+CREATE TABLE IF NOT EXISTS item_cookie_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  cookies_enc TEXT NOT NULL,
+  cookie_count INTEGER NOT NULL,
+  captured_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_item_cookie ON item_cookie_snapshots(account_id, item_id, id DESC);
+CREATE TABLE IF NOT EXISTS runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  ok INTEGER NOT NULL,
+  message TEXT,
+  duration_ms INTEGER,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_runs_at ON runs(at DESC);
+CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
+`);
+
+export const now = () => Math.floor(Date.now() / 1000);
+
+export function setKv(key: string, value: string) {
+  db.prepare("INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(key, value);
+}
+export function getKv(key: string): string | undefined {
+  return (db.prepare("SELECT value FROM kv WHERE key=?").get(key) as { value: string } | undefined)?.value;
+}
+
+export type RunKind = "check" | "login" | "apps-sync" | "item-fetch";
+
+export function logRun(accountId: string, kind: RunKind, ok: boolean, message: string, durationMs: number) {
+  db.prepare("INSERT INTO runs(account_id,kind,ok,message,duration_ms,at) VALUES(?,?,?,?,?,?)").run(
+    accountId,
+    kind,
+    ok ? 1 : 0,
+    message.slice(0, 500),
+    durationMs,
+    now(),
+  );
+  db.prepare("DELETE FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT 1000)").run();
+}
