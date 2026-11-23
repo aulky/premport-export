@@ -1,0 +1,23 @@
+node_modules
+dist
+web/dist
+data
+.env
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Bundel ekstensi pihak ketiga (bukan punya kita, dipakai cuma untuk
+# riset/reverse-engineering -- jangan didistribusikan ulang lewat repo ini)
+Extension - Premium Portal*/
+
+# Skrip scratch pribadi lama, tidak dipakai aplikasi (baca combo list lokal)
+cek-login.py
+
+# OS / editor
+.DS_Store
+Thumbs.db

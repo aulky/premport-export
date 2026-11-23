@@ -1,0 +1,49 @@
+{
+  "name": "cookie-vault",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n web,worker,ui -c blue,magenta,green \"npm:dev:web\" \"npm:dev:worker\" \"npm:dev:ui\"",
+    "dev:web": "tsx watch src/server/server.ts",
+    "dev:worker": "tsx watch src/server/worker.ts",
+    "dev:ui": "vite --config web/vite.config.ts",
+    "build:server": "tsc -p tsconfig.json",
+    "build:ui": "vite build --config web/vite.config.ts",
+    "build": "npm run build:server && npm run build:ui",
+    "start:web": "node dist/server/server.js",
+    "start:worker": "node dist/server/worker.js",
+    "setup:python": "pip install -r requirements.txt"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/static": "^10.1.12",
+    "@fontsource-variable/figtree": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "better-sqlite3": "^13.2.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "fastify": "^5.12.8",
+    "lucide-react": "^1.78.0",
+    "radix-ui": "^1.8.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "tailwindcss": "^4.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

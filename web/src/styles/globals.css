@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@import "./dens-ui.css";
+
+/* Override aksen oranye bawaan Dens-UI dengan pasangan warna Anda:
+   Mars Green #008C8D sebagai brand/primary, Periwinkle #53589A sebagai aksen kedua,
+   Powder #FFF2DF sebagai warm neutral untuk permukaan. */
+:root {
+  --brand: #008c8d;
+  --primary: #00797a;
+  --ring: #008c8d;
+
+  --highlight: #53589a; /* Periwinkle jadi aksen kedua, gantikan oranye */
+  --highlight-foreground: #ffffff;
+
+  --background: #fbf7f0;
+  --surface: #fff2df; /* Powder */
+  --secondary: #f3e9d6;
+  --accent: #eef0fa; /* periwinkle tint, untuk hover/aktif ringan */
+  --accent-foreground: #2c2f5c;
+
+  --sidebar: #0f3d3d;
+  --sidebar-foreground: #eafbf9;
+  --sidebar-primary: #008c8d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #134f4f;
+  --sidebar-accent-foreground: #eafbf9;
+  --sidebar-border: #175a5a;
+  --sidebar-ring: #19a3a4;
+
+  --chart-1: #008c8d;
+  --chart-2: #53589a;
+  --chart-3: #c08a2e;
+  --chart-4: #a7325e;
+  --chart-5: #2d6b4f;
+}
+
+.dark {
+  --brand: #008c8d;
+  --primary: #19a3a4;
+  --highlight: #7a7fc9;
+  --highlight-foreground: #0d0f24;
+  --accent: #1c1f36;
+  --accent-foreground: #d7d9f5;
+}
