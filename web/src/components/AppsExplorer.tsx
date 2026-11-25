@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, Copy, Download, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
+import { ChevronLeft, Copy, Download, ExternalLink, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
 import { api, type AppDto, type CredsDto, type ItemDto } from "@/lib/api";
 import { plural } from "@/lib/utils";
+import { AppIcon } from "@/components/AppIcon";
 
 function timeAgo(ts: number | null) {
   if (!ts) return "never";
@@ -161,7 +162,19 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
               <ChevronLeft className="size-4" />
             </button>
           )}
+          {selectedApp && <AppIcon url={selectedApp.url} className="size-6" />}
           {selectedApp ? selectedApp.name : "App list"}
+          {selectedApp?.url && (
+            <a
+              href={selectedApp.url}
+              target="_blank"
+              rel="noreferrer"
+              title={`Open ${selectedApp.name}'s website`}
+              className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ExternalLink className="size-3.5" />
+            </a>
+          )}
         </CardTitle>
         <CardDescription>
           {selectedApp
@@ -203,7 +216,8 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                   onClick={() => setSelectedApp(app)}
                   className="flex w-full items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 text-left hover:bg-accent"
                 >
-                  <div className="min-w-0">
+                  <AppIcon url={app.url} />
+                  <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{app.name}</div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       {app.category && <span className="capitalize">{app.category}</span>}
@@ -262,38 +276,50 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                         )}
                       </div>
                     </div>
-                    {selectedApp.targetType === "cookies" && (
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGet(item.itemId)}>
-                          <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
-                          Get
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {(item.url ?? selectedApp.url) && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          title={`Open ${item.itemName ?? "item"}'s website`}
+                          onClick={() => window.open(item.url ?? selectedApp.url ?? undefined, "_blank")}
+                        >
+                          <ExternalLink className="size-3.5" />
                         </Button>
-                        {item.lastCookieCount != null && (
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            title="Export cookie.json (format Cookie-Editor)"
-                            onClick={() => window.open(api.itemCookiesUrl(accountId, item.itemId), "_blank")}
-                          >
-                            <Download className="size-3.5" />
+                      )}
+                      {selectedApp.targetType === "cookies" && (
+                        <>
+                          <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGet(item.itemId)}>
+                            <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
+                            Get
                           </Button>
-                        )}
-                      </div>
-                    )}
-                    {selectedApp.targetType === "autofill" && (
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {item.hasCreds && !creds[item.itemId] && (
-                          <Button size="sm" variant="outline" disabled={busyItem === item.itemId} onClick={() => void handleViewCreds(item.itemId)}>
-                            <Eye className="size-3.5" />
-                            View
+                          {item.lastCookieCount != null && (
+                            <Button
+                              size="icon-sm"
+                              variant="outline"
+                              title="Export cookie.json (format Cookie-Editor)"
+                              onClick={() => window.open(api.itemCookiesUrl(accountId, item.itemId), "_blank")}
+                            >
+                              <Download className="size-3.5" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {selectedApp.targetType === "autofill" && (
+                        <>
+                          {item.hasCreds && !creds[item.itemId] && (
+                            <Button size="sm" variant="outline" disabled={busyItem === item.itemId} onClick={() => void handleViewCreds(item.itemId)}>
+                              <Eye className="size-3.5" />
+                              View
+                            </Button>
+                          )}
+                          <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGetCreds(item.itemId)}>
+                            <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
+                            {item.hasCreds ? "Refresh" : "Get"}
                           </Button>
-                        )}
-                        <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGetCreds(item.itemId)}>
-                          <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
-                          {item.hasCreds ? "Refresh" : "Get"}
-                        </Button>
-                      </div>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </div>
                   {selectedApp.targetType === "autofill" && creds[item.itemId] && <CredsRow creds={creds[item.itemId]!} />}
                 </li>
