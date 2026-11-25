@@ -205,6 +205,12 @@ HTTPS, then submit the sitemap in Google Search Console and Bing Webmaster Tools
 ## Security
 
 - All cookies in SQLite are encrypted (AES-256-GCM) with `SECRET_KEY`.
+- After 5 failed sign-ins from one IP (one /64 for IPv6), further attempts from
+  it are refused with `429` for the rest of a 15-minute window, even with the
+  right password. The count is kept in memory, so `pm2 restart cookie-vault-web`
+  clears it. Behind a proxy such as Cloudflare, make sure the real visitor IP
+  reaches the app (see [Access history](#access-history)), otherwise visitors
+  share one limit.
 - Every `/api/*` endpoint except `/api/login` requires a signed-in session, and
   is admin-only unless explicitly opened to users.
 - `.env` holds account credentials — never commit it (it is in `.gitignore`).

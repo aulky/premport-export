@@ -396,12 +396,18 @@ NOT contain `wildcard: false`, then `pm2 restart cookie-vault-web`.
 `pm2 logs cookie-vault-web`, and compare `PORT`/`HOST` in `.env` with
 `proxy_pass` in the Nginx config.
 
-**5. Duplicate worker processes (left over from manual testing)**
+**5. "Too many failed attempts" on the sign-in page**
+Five failed sign-ins from one IP block that IP for up to 15 minutes. Wait, or run
+`pm2 restart cookie-vault-web` to clear it. If different people are blocked
+together, the app is seeing a proxy's IP instead of theirs: check the Nginx
+`X-Forwarded-For` header and the IPs on the Logs page.
+
+**6. Duplicate worker processes (left over from manual testing)**
 Don't run `node dist/server/worker.js` manually while PM2 manages it: the two can
 race to sign in to the same account and trigger 403s or kicked sessions. Always
 use `pm2 start/restart/stop`.
 
-**6. A `POST` API request returns `400 Bad Request` with an empty body**
+**7. A `POST` API request returns `400 Bad Request` with an empty body**
 Fastify rejects `Content-Type: application/json` without a body. Frontend POSTs
 without a payload send `body: "{}"` explicitly; follow the same pattern for new
 endpoints in `web/src/lib/api.ts`.
