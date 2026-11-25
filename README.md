@@ -108,13 +108,31 @@ automatic or in bulk. Some apps have daily limits (the extension's own text says
 for Netflix, that you may only pick 10 accounts in 24 hours), and fetching every
 item at once could get the account banned.
 
-Not every app uses `targetType: "cookies"`. There are also `"autofill"` (form
-filling with credentials via `/items/creds`), `"list"`, and `"link"`. The
-dashboard only exports cookies for `targetType: "cookies"`; the others are listed
-without actions.
+Not every app uses `targetType: "cookies"`. There are also `"autofill"` (see
+below), `"list"`, and `"link"` — the latter two are listed without actions for
+now (not yet reverse-engineered).
 
 In the dashboard: click the app count on an account row → pick an app → pick an
 item/slot → click **Get** → click the download icon to export `cookies.json`.
+
+## Account credentials (MediaFire, QuillBot, Gamma, etc.)
+
+Some apps share an account via **username/password** instead of cookies
+(`targetType: "autofill"` — the official extension auto-fills the sign-in form
+with them). Found the same way as the cookie endpoints, by reverse-engineering
+`autofill.<hash>.js` and `static/background/index.js` (handler `detail-account`
+→ `services/auto-login.service.ts`):
+
+- `GET /items/creds/single/{itemId}` — `{url, username, password}` for that item.
+
+In the dashboard: pick an app with the **Account credentials** badge → pick an
+item → click **Get**. The username/password appear inline, with the password
+masked by default (click the eye icon to reveal, or use the copy buttons). If
+it looks stale, click **Refresh** to fetch the current value from the provider;
+**View** shows the last fetched value again without a new provider call. Same
+safety rule as cookies: always manual, never automatic or in bulk. Only the
+most recent value is stored (not a history), and it is encrypted the same way
+as cookies.
 
 ## Dashboard accounts and roles
 
@@ -128,7 +146,7 @@ Sign in with a username and password.
 | Feature | Admin | User |
 |---|---|---|
 | Dashboard, Apps, Tutorial | yes | yes |
-| Get and download app cookies | yes | yes |
+| Get, view, and download app cookies/credentials | yes | yes |
 | Refresh / Refresh All (sign in again to the source account) | yes | no |
 | Export the source account's session cookie | yes | no |
 | Logs (system activity, access history with IPs) | yes | no |
@@ -169,8 +187,9 @@ The **Logs** page shows 10 entries per page, newest first, in three tabs:
 
 - **Sign-ins** — successful sign-ins, failed attempts, and sign-outs, with time,
   username, IP, and device.
-- **Cookies** — cookie fetches and downloads: who and from which IP, app, item,
-  account, and cookie count. Click an IP to filter. Cookie values are never logged.
+- **Cookies** — cookie and credential fetches/views/downloads: who and from
+  which IP, app, item, account, and cookie count. Click an IP to filter.
+  Cookie values and passwords are never logged.
 - **System** — worker sign-ins, session checks, and catalog syncs.
 
 At most 10,000 sign-in entries and 10,000 cookie entries are kept; the oldest are
