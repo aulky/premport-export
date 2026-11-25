@@ -27,7 +27,7 @@ export function Login({ onSuccess }: { onSuccess: (me: MeDto) => void }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="app-backdrop flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm shadow-raised">
         <CardHeader className="items-center justify-items-center gap-2 text-center">
           <Logo className="mb-1 size-16" />

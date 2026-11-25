@@ -3,8 +3,16 @@
 
 /* Override aksen oranye bawaan Dens-UI dengan pasangan warna Anda:
    Mars Green #008C8D sebagai brand/primary, Periwinkle #53589A sebagai aksen kedua,
-   Powder #FFF2DF sebagai warm neutral untuk permukaan. */
-:root {
+   Powder #FFF2DF sebagai warm neutral untuk permukaan. Sidebar tetap memakai
+   identitas teal gelap di kedua mode, supaya brand-nya konsisten.
+
+   PENTING soal urutan cascade: blok ini HARUS pakai ":root:not(.dark)", bukan
+   ":root" polos. ":root" dan ".dark" sama-sama satu class dalam hal specificity,
+   jadi siapa yang menang murni soal urutan deklarasi -- ":root" di sini datang
+   SETELAH ".dark" bawaan dens-ui.css, jadi dia akan menimpa balik nilai dark
+   mode walau elemennya sedang punya class "dark" (variabel custom property
+   tidak tahu soal "mode", dia cuma ikut pemenang cascade apa adanya). */
+:root:not(.dark) {
   --brand: #008c8d;
   --primary: #00797a;
   --ring: #008c8d;
@@ -12,17 +20,19 @@
   --highlight: #53589a; /* Periwinkle jadi aksen kedua, gantikan oranye */
   --highlight-foreground: #ffffff;
 
-  --background: #fbf7f0;
+  --background: #f8f4ea;
   --surface: #fff2df; /* Powder */
-  --secondary: #f3e9d6;
+  --secondary: #efe2cb;
+  --secondary-foreground: #241f14;
   --accent: #eef0fa; /* periwinkle tint, untuk hover/aktif ringan */
   --accent-foreground: #2c2f5c;
+  --border: #e4d9c2;
 
   --sidebar: #0f3d3d;
   --sidebar-foreground: #eafbf9;
   --sidebar-primary: #008c8d;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #134f4f;
+  --sidebar-accent: #1b5353;
   --sidebar-accent-foreground: #eafbf9;
   --sidebar-border: #175a5a;
   --sidebar-ring: #19a3a4;
@@ -32,19 +42,61 @@
   --chart-3: #c08a2e;
   --chart-4: #a7325e;
   --chart-5: #2d6b4f;
+
+  /* Pendar lembut di latar, memakai kedua warna brand -- bikin permukaan datar
+     terasa lebih hidup tanpa mengganggu keterbacaan konten di atasnya. */
+  --surface-glow: radial-gradient(60rem 36rem at 100% -12%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
+    radial-gradient(50rem 32rem at -10% 110%, color-mix(in srgb, var(--highlight) 12%, transparent), transparent 60%);
 }
 
 .dark {
-  --brand: #008c8d;
+  --brand: #1fb5b6;
   --primary: #19a3a4;
-  --highlight: #7a7fc9;
+  --highlight: #8689d1;
   --highlight-foreground: #0d0f24;
-  --accent: #1c1f36;
+
+  /* Netral digeser ke teal gelap (bukan abu-abu netral bawaan Dens-UI), supaya
+     identitas brand jalan terus di dark mode, bukan cuma di sidebar. */
+  --background: #091615;
+  --surface: #0e201e;
+  --card: #122826;
+  --card-foreground: #e8f5f2;
+  --popover: #122826;
+  --popover-foreground: #e8f5f2;
+  --secondary: #163431;
+  --secondary-foreground: #d7f3ef;
+  --accent: #1c2342;
   --accent-foreground: #d7d9f5;
+  --border: #1d3f3c;
+  --input: #244946;
+
+  --sidebar: #081e1e;
+  --sidebar-foreground: #dff7f4;
+  --sidebar-primary: #19a3a4;
+  --sidebar-primary-foreground: #031414;
+  --sidebar-accent: #123b3b;
+  --sidebar-accent-foreground: #dff7f4;
+  --sidebar-border: #163939;
+  --sidebar-ring: #19a3a4;
+
+  --surface-glow: radial-gradient(60rem 36rem at 100% -12%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%),
+    radial-gradient(50rem 32rem at -10% 110%, color-mix(in srgb, var(--highlight) 18%, transparent), transparent 60%);
+}
+
+/* `bg-background` dipakai pada elemen full-layar yang opaque (shell, halaman
+   login), jadi pendar di body tidak akan pernah terlihat di baliknya -- kelas
+   ini dipakai di situ sebagai ganti `bg-background` supaya pendarnya tampil. */
+.app-backdrop {
+  background-color: var(--background);
+  background-image: var(--surface-glow);
+  background-attachment: fixed;
 }
 
 /* Scrollbar tipis dengan jalur transparan di seluruh aplikasi. */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgb(15 61 61 / 0.25) transparent;
+}
+.dark * {
+  scrollbar-color: rgb(223 247 244 / 0.18) transparent;
 }

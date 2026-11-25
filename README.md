@@ -22,12 +22,19 @@ extension format, ready to import into a browser.
 - **SQLite** (`better-sqlite3`, WAL mode) — a single `data/cookies.db` file shared
   by `web` and `worker` (safe because WAL allows many readers and one writer).
 - **Frontend**: React + Vite + Tailwind v4, **Dens-UI** theme with a custom palette
-  of Mars Green `#008C8D`, Periwinkle `#53589A`, and Powder `#FFF2DF`
-  (see `web/src/styles/globals.css`).
+  of Mars Green `#008C8D`, Periwinkle `#53589A`, and Powder `#FFF2DF`, light and
+  dark mode (see `web/src/styles/globals.css`), and the **Geist** typeface.
 
 The **app list is dynamic**: the worker upserts the apps it finds on every
 sign-in. Apps that no longer appear are marked inactive, not deleted, so their
 history stays in SQLite.
+
+## Appearance
+
+The account menu (avatar + username, top right of the header) has a **Light /
+Dark / System** switch. The choice is saved per browser (`localStorage`) and
+applied before the page paints, so there is no flash of the wrong theme.
+"System" follows the OS/browser setting and updates live if it changes.
 
 ## Setup (Linux)
 

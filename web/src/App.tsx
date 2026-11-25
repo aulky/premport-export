@@ -9,6 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { UsersPage } from "@/pages/UsersPage";
 import { api, type MeDto } from "@/lib/api";
 import { MeContext } from "@/lib/me";
+import { ThemeContext, useThemeState } from "@/lib/theme";
 
 function parseAccountId(pathname: string): string | null {
   const m = /^\/accounts\/([^/]+)\/?$/.exec(pathname);
@@ -21,6 +22,7 @@ function parseAppsAccountId(pathname: string): string | null {
 }
 
 export function App() {
+  const theme = useThemeState();
   const [me, setMe] = useState<MeDto | null | undefined>(undefined); // undefined = masih dicek
   const [path, setPath] = useState(() => window.location.pathname);
 
@@ -50,12 +52,14 @@ export function App() {
   if (me === undefined) return null;
   if (!me) {
     return (
-      <Login
-        onSuccess={(who) => {
-          navigate("/");
-          setMe(who);
-        }}
-      />
+      <ThemeContext.Provider value={theme}>
+        <Login
+          onSuccess={(who) => {
+            navigate("/");
+            setMe(who);
+          }}
+        />
+      </ThemeContext.Provider>
     );
   }
   const isAdmin = me.role === "admin";
@@ -78,10 +82,12 @@ export function App() {
   }
 
   return (
-    <MeContext.Provider value={me}>
-      <AppShell path={path} navigate={navigate} onLogout={handleLogout}>
-        {page}
-      </AppShell>
-    </MeContext.Provider>
+    <ThemeContext.Provider value={theme}>
+      <MeContext.Provider value={me}>
+        <AppShell path={path} navigate={navigate} onLogout={handleLogout}>
+          {page}
+        </AppShell>
+      </MeContext.Provider>
+    </ThemeContext.Provider>
   );
 }

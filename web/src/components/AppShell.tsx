@@ -71,7 +71,7 @@ export function AppShell({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="app-backdrop flex h-screen overflow-hidden">
       {/* Sidebar -- tetap tampil di layar besar */}
       <div className="hidden shrink-0 lg:flex lg:w-60">
         <SidebarContent path={path} navigate={navigate} />
