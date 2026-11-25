@@ -34,6 +34,7 @@ import { fetchItemCookiesLive } from "./portal.js";
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
+import { refundAttempt, takeAttempt } from "./ratelimit.js";
 import { renderAbout, renderIndex, renderLlms, renderRobots, renderSitemap, siteUrl } from "./seo.js";
 
 declare module "fastify" {
@@ -64,6 +65,7 @@ await app.register(fastifyCookie);
 await app.register(fastifyStatic, { root: uiDist });
 
 const COOKIE_NAME = "cv_session";
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 /** Rute yang juga boleh diakses role "user": melihat data dan mengambil cookie. */
 const USER = { config: { access: "user" as const } };
 
@@ -83,12 +85,20 @@ app.addHook("onRequest", async (req, reply) => {
 app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { config: { access: "public" } }, async (req, reply) => {
   const username = normalizeUsername(req.body?.username);
   const password = req.body?.password;
+  const { retryAfterSec, firstBlock } = takeAttempt(req.ip);
+  if (retryAfterSec) {
+    const message = `Too many failed attempts. Try again in ${plural(Math.ceil(retryAfterSec / 60), "minute")}.`;
+    if (firstBlock) logAccess(req, "login", { ok: false, username, message: "Blocked: too many failed attempts" });
+    reply.code(429).header("Retry-After", retryAfterSec);
+    return { error: message };
+  }
   const user = username && typeof password === "string" ? await authenticate(username, password) : null;
   if (!user) {
     logAccess(req, "login", { ok: false, username, message: "Wrong username or password" });
     reply.code(401);
     return { error: "Wrong username or password" };
   }
+  refundAttempt(req.ip);
   logAccess(req, "login", { ok: true, username: user.username });
   const token = makeSession(user, config.sessionTtlSec);
   reply.setCookie(COOKIE_NAME, token, {
