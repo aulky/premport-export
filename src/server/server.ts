@@ -38,7 +38,10 @@ await app.register(fastifyStatic, { root: uiDist });
 const COOKIE_NAME = "cv_session";
 
 app.addHook("onRequest", async (req, reply) => {
-  if (!req.url.startsWith("/api/") || req.url === "/api/login") return;
+  // Cek pola rute yang BENAR-BENAR dicocokkan router, bukan req.url mentah: router
+  // men-decode URL, jadi "/%61pi/accounts" tetap masuk ke "/api/accounts".
+  const route = req.routeOptions.url;
+  if (!route?.startsWith("/api/") || route === "/api/login") return;
   const token = req.cookies[COOKIE_NAME];
   if (!verifySession(token)) {
     reply.code(401).send({ error: "Belum login" });
