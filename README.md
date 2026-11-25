@@ -190,6 +190,24 @@ stored as salted scrypt hashes. Usernames are 3-32 characters (letters, numbers,
 
 Note that each **Get** by any user counts against the provider's daily limits.
 
+### Session lifetime
+
+Logins expire on their own — **15 minutes** by default — and only **one session
+per account is ever valid at a time**:
+
+- The session cookie is a signed, tamper-proof token that carries its own
+  expiry; it is rejected the moment that time passes, with no server-side state
+  to clean up.
+- Signing in again (same account, any device/tab/browser) immediately
+  invalidates the previous session, even if it hasn't expired yet — there is no
+  way to keep an old, possibly-leaked session alive by not touching it.
+- When a session ends, the dashboard notices on its own — it doesn't wait for
+  you to click something — and returns to the sign-in page with a notice.
+- The admin can change the lifetime (1–1440 minutes) on the **Users** page,
+  under **Session security**; this only affects logins made after the change.
+- The admin can also force any specific user to sign out immediately (**Sign
+  out** button next to that user), without resetting their password.
+
 ## Adding or changing source accounts
 
 Add `ACCOUNT_N_LABEL` / `ACCOUNT_N_EMAIL` / `ACCOUNT_N_PASSWORD` lines to `.env`,
@@ -262,6 +280,10 @@ HTTPS, then submit the sitemap in Google Search Console and Bing Webmaster Tools
   share one limit.
 - Every `/api/*` endpoint except `/api/login` requires a signed-in session, and
   is admin-only unless explicitly opened to users.
+- Sessions are short-lived (15 minutes by default, admin-configurable, see
+  [Session lifetime](#session-lifetime)) and single-use per account: a new sign-in
+  always invalidates whatever session that account had before, and the admin can
+  force any user to sign out on demand.
 - `.env` holds account credentials — never commit it (it is in `.gitignore`).
 - Make sure automated sign-in and scraping comply with the terms of service of
   the site involved.
