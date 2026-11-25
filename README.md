@@ -203,8 +203,13 @@ per account is ever valid at a time**:
   way to keep an old, possibly-leaked session alive by not touching it.
 - When a session ends, the dashboard notices on its own — it doesn't wait for
   you to click something — and returns to the sign-in page with a notice.
-- The admin can change the lifetime (1–1440 minutes) on the **Users** page,
-  under **Session security**; this only affects logins made after the change.
+- The admin can change the default lifetime (1–1440 minutes) on the **Users**
+  page, under **Session security**; this only affects logins made after the
+  change.
+- The admin can also give any specific user their own lifetime (**Session**
+  button next to that user, same 1–1440-minute range) — different users can
+  have different lifetimes — or reset them back to the default (**Use
+  default**).
 - The admin can also force any specific user to sign out immediately (**Sign
   out** button next to that user), without resetting their password.
 
