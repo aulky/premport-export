@@ -26,11 +26,11 @@ const STEPS: { icon: typeof Puzzle; title: string; body: React.ReactNode }[] = [
   },
   {
     icon: Download,
-    title: "2. Ambil & unduh cookie dari Cookie Vault",
+    title: "2. Ambil & unduh cookie dari Cookie Scraping Tools",
     body: (
       <>
         <p>
-          Di dashboard Cookie Vault, buka akun yang diinginkan → cari app tujuan (mis. Netflix, ChatGPT) → pilih
+          Di dashboard Cookie Scraping Tools, buka akun yang diinginkan → cari app tujuan (mis. Netflix, ChatGPT) → pilih
           item/slot akun → klik <Badge variant="success">Get</Badge>.
         </p>
         <p className="mt-2 text-muted-foreground">
@@ -94,7 +94,7 @@ const STEPS: { icon: typeof Puzzle; title: string; body: React.ReactNode }[] = [
       <p>
         Kalau cookie valid dan belum kadaluarsa, halaman akan menunjukkan Anda sudah login (mis. masuk ke halaman
         "Browse" Netflix, bukan halaman login). Kalau masih diminta login, cek lagi: domain tab harus persis sama
-        dengan domain cookie, dan coba klik <strong>Get</strong> ulang di Cookie Vault untuk mengambil cookie yang lebih
+        dengan domain cookie, dan coba klik <strong>Get</strong> ulang di Cookie Scraping Tools untuk mengambil cookie yang lebih
         baru.
       </p>
     ),
@@ -138,7 +138,7 @@ export function TutorialPage() {
               <li>Cookie yang sudah lama (lihat kolom "diambil") bisa saja sudah kadaluarsa -- klik "Get" lagi untuk ambil yang baru sebelum import ulang.</li>
               <li>
                 Gunakan tombol <Badge variant="secondary">Export cookie.json</Badge> di Dashboard untuk mengekspor sesi
-                premiumportal.id sendiri, berbeda dengan cookie per-app yang diambil lewat "Get".
+                akun itu sendiri, berbeda dengan cookie per-app yang diambil lewat "Get".
               </li>
             </ul>
           </CardContent>

@@ -6,6 +6,7 @@ import { AppsPage } from "@/pages/AppsPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { TutorialPage } from "@/pages/TutorialPage";
 import { AppShell } from "@/components/AppShell";
+import { APP_NAME } from "@/components/Logo";
 
 function parseAccountId(pathname: string): string | null {
   const m = /^\/accounts\/([^/]+)\/?$/.exec(pathname);
@@ -48,7 +49,7 @@ export function App() {
 
   const accountId = parseAccountId(path);
   let page: React.ReactNode;
-  let title = "Cookie Vault";
+  let title = APP_NAME;
   if (accountId) {
     page = <AccountPage accountId={accountId} onBack={() => navigate("/")} />;
     title = "Akun";

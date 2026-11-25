@@ -8,6 +8,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { APP_NAME, Logo } from "@/components/Logo";
 import { api } from "@/lib/api";
 
 const NAV = [
@@ -21,12 +22,10 @@ function SidebarContent({ path, navigate, onLogout }: { path: string; navigate: 
   return (
     <Sidebar className="h-full w-full rounded-none p-3 ring-0 border-r border-sidebar-border">
       <SidebarHeader>
-        <div className="flex size-9 items-center justify-center rounded-xl bg-sidebar-primary font-mono text-sm font-bold text-sidebar-primary-foreground">
-          CV
-        </div>
-        <div className="min-w-0">
-          <div className="truncate font-mono text-sm font-semibold">Cookie Vault</div>
-          <div className="truncate text-xs text-sidebar-foreground/60">Premium portal</div>
+        <Logo className="size-9 shrink-0" />
+        <div className="min-w-0 leading-tight">
+          <div className="text-sm font-semibold tracking-tight">Cookie Scraping</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-sidebar-foreground/60">Tools</div>
         </div>
       </SidebarHeader>
 
@@ -100,7 +99,8 @@ export function AppShell({
           <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen((o) => !o)} aria-label="Buka menu">
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>
-          <span className="font-mono text-sm font-semibold text-brand">{title ?? "Cookie Vault"}</span>
+          <Logo className="size-7 shrink-0" />
+          <span className="text-sm font-semibold text-brand">{title ?? APP_NAME}</span>
         </header>
 
         <div className="flex-1">{children}</div>

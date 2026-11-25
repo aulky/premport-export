@@ -94,7 +94,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
         </CardTitle>
         <CardDescription>
           {selectedApp
-            ? "Klik \"Get\" untuk mengambil cookie item ini (manual, 1x per klik -- beberapa app punya limit harian di portal)."
+            ? "Klik \"Get\" untuk mengambil cookie item ini (manual, 1x per klik -- beberapa app punya limit harian dari penyedia)."
             : "Katalog disinkron otomatis saat login/refresh. Cari untuk mempersempit."}
         </CardDescription>
       </CardHeader>

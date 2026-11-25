@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api } from "@/lib/api";
+import { APP_NAME, Logo } from "@/components/Logo";
 
 export function Login({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState("");
@@ -28,8 +29,9 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm shadow-raised">
-        <CardHeader>
-          <CardTitle className="font-mono text-brand">Cookie Vault</CardTitle>
+        <CardHeader className="items-center justify-items-center gap-2 text-center">
+          <Logo className="mb-1 size-16" />
+          <CardTitle className="text-xl tracking-tight text-brand">{APP_NAME}</CardTitle>
           <CardDescription>Masuk untuk melihat & mengekspor cookie.</CardDescription>
         </CardHeader>
         <CardContent>

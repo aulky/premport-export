@@ -97,8 +97,8 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
     <div className="min-h-full bg-background">
       <header className="hidden items-center justify-between border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:flex">
         <div>
-          <h1 className="font-mono text-lg font-semibold text-brand">Cookie Vault</h1>
-          <p className="text-sm text-muted-foreground">Cookie premium portal, selalu up to date</p>
+          <h1 className="font-mono text-lg font-semibold text-brand">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Status akun dan cookie, selalu up to date</p>
         </div>
         <Button variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()}>
           <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
