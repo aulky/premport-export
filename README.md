@@ -40,7 +40,7 @@ pip install -r requirements.txt   # or: npm run setup:python
 cp .env.example .env
 nano .env
 #   - SECRET_KEY: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-#   - ADMIN_PASSWORD: password for the dashboard (not the source account password)
+#   - ADMIN_PASSWORD: password of the dashboard "admin" account (not the source account password)
 #   - ACCOUNT_1_EMAIL / ACCOUNT_1_PASSWORD, ACCOUNT_2_..., etc. — the accounts to use
 
 # 3. Build
@@ -116,7 +116,33 @@ without actions.
 In the dashboard: click the app count on an account row → pick an app → pick an
 item/slot → click **Get** → click the download icon to export `cookies.json`.
 
-## Adding or changing accounts
+## Dashboard accounts and roles
+
+Sign in with a username and password.
+
+- **admin** — username `admin`, password `ADMIN_PASSWORD` from `.env`. Creates
+  users, resets their passwords, and deletes them on the **Users** page.
+- **user** — created by the admin. Can view data and fetch cookies, but cannot add
+  or manage anything.
+
+| Feature | Admin | User |
+|---|---|---|
+| Dashboard, Apps, Tutorial | yes | yes |
+| Get and download app cookies | yes | yes |
+| Refresh / Refresh All (sign in again to the source account) | yes | no |
+| Export the source account's session cookie | yes | no |
+| Logs (system activity, access history with IPs) | yes | no |
+| Users (add, reset password, delete) | yes | no |
+
+The server enforces these rules: an API route is admin-only unless it is
+explicitly opened to users in `src/server/server.ts`. Deleting a user or changing
+a password ends that account's existing sessions immediately. User passwords are
+stored as salted scrypt hashes. Usernames are 3-32 characters (letters, numbers,
+`.`, `_`, `-`), passwords at least 8 characters.
+
+Note that each **Get** by any user counts against the provider's daily limits.
+
+## Adding or changing source accounts
 
 Add `ACCOUNT_N_LABEL` / `ACCOUNT_N_EMAIL` / `ACCOUNT_N_PASSWORD` lines to `.env`,
 then:
@@ -141,10 +167,10 @@ In the dashboard, click **Export cookie.json** on an account whose status is
 
 The **Logs** page shows 10 entries per page, newest first, in three tabs:
 
-- **Sign-ins** — successful sign-ins, wrong passwords, and sign-outs, with time,
-  IP, and device.
-- **Cookies** — cookie fetches and downloads per IP: app, item, account, and
-  cookie count. Click an IP to filter. Cookie values are never logged.
+- **Sign-ins** — successful sign-ins, failed attempts, and sign-outs, with time,
+  username, IP, and device.
+- **Cookies** — cookie fetches and downloads: who and from which IP, app, item,
+  account, and cookie count. Click an IP to filter. Cookie values are never logged.
 - **System** — worker sign-ins, session checks, and catalog syncs.
 
 At most 10,000 sign-in entries and 10,000 cookie entries are kept; the oldest are
@@ -158,7 +184,8 @@ proxy sits in front (such as Cloudflare), configure Nginx to forward the real IP
 ## Security
 
 - All cookies in SQLite are encrypted (AES-256-GCM) with `SECRET_KEY`.
-- Every `/api/*` endpoint except `/api/login` requires a signed-in session.
+- Every `/api/*` endpoint except `/api/login` requires a signed-in session, and
+  is admin-only unless explicitly opened to users.
 - `.env` holds account credentials — never commit it (it is in `.gitignore`).
 - Make sure automated sign-in and scraping comply with the terms of service of
   the site involved.

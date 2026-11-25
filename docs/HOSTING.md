@@ -320,7 +320,8 @@ pm2 restart cookie-vault-web
 ## 11. Final end-to-end check
 
 1. Open `https://YOUR_DOMAIN.COM/` — the sign-in page appears.
-2. Sign in with the `ADMIN_PASSWORD` from `.env` — you reach the Dashboard.
+2. Sign in with username `admin` and the `ADMIN_PASSWORD` from `.env` — you reach
+   the Dashboard.
 3. Wait until the account **Status** becomes `Active` (the worker needs a few
    ticks to sign in — see `pm2 logs cookie-vault-worker`).
 4. Click the account → open an app (`targetType: cookies`) → click **Get** on one
@@ -329,6 +330,10 @@ pm2 restart cookie-vault-web
    the Cookie-Editor extension.
 6. Check the **Logs** page: it has sign-in entries and `System` entries for
    sign-in, session check, and app sync.
+
+7. If other people need access, create accounts for them on the **Users** page.
+   They get the `user` role (see "Dashboard accounts and roles" in `README.md`).
+   Don't share the admin password.
 
 If everything passes, the deployment is complete.
 
@@ -346,7 +351,7 @@ pm2 restart cookie-vault-web cookie-vault-worker
 **Check:** both processes are `online` in `pm2 status`, and the dashboard opens
 without a blank page (see Troubleshooting #3 if it does).
 
-## 13. Adding or changing accounts
+## 13. Adding or changing source accounts
 
 Edit `.env`, add or change `ACCOUNT_N_LABEL/EMAIL/PASSWORD`, then:
 
@@ -397,6 +402,7 @@ endpoints in `web/src/lib/api.ts`.
 - [ ] `COOKIE_SECURE=true` once HTTPS works.
 - [ ] `ADMIN_PASSWORD` is strong (not a default or guessable value) and the
       operator has it.
+- [ ] Other people have their own `user` accounts instead of the admin password.
 - [ ] `ufw status` only allows 22/80/443.
 - [ ] `pm2 startup` was verified with `sudo reboot` (section 9).
 - [ ] `data/cookies.db` is backed up on a schedule (optional but recommended: it
