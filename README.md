@@ -144,6 +144,26 @@ Di dashboard, klik **Export cookie.json** pada akun yang statusnya
 `Aktif`/`Expired` — file yang diunduh formatnya identik dengan hasil
 **Export → JSON** di ekstensi Cookie-Editor, tinggal **Import** langsung.
 
+## Riwayat akses
+
+Halaman **Logs** menampilkan 10 entri terbaru per halaman, dalam tiga tab:
+
+- **Riwayat login** — login berhasil, password salah, dan logout, lengkap
+  dengan jam, IP, dan perangkat.
+- **Pengambilan cookie** — Get dan unduhan cookie per IP: app, item, akun, dan
+  jumlah cookie. Klik sebuah IP untuk memfilter. Nilai cookie tidak disimpan di
+  log.
+- **Aktivitas sistem** — login worker, cek sesi, dan sinkron katalog.
+
+Disimpan maksimal 10.000 entri login dan 10.000 entri cookie (yang terlama
+dihapus). Semua pengguna dashboard memakai satu `ADMIN_PASSWORD`, jadi orang
+hanya bisa dibedakan dari IP dan perangkatnya.
+
+IP diambil dari `X-Forwarded-For` hanya kalau request datang dari proxy
+tepercaya (`TRUST_PROXY`, default `loopback` = Nginx di server yang sama). Kalau
+ada proxy lain di depannya (mis. Cloudflare), atur agar Nginx meneruskan IP asli
+(`real_ip_header`), atau yang tercatat adalah IP proxy tersebut.
+
 ## Keamanan
 
 - Semua cookie di SQLite dienkripsi (AES-256-GCM) dengan `SECRET_KEY`.
