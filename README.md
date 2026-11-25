@@ -1,6 +1,6 @@
-# Cookie Vault
+# Cookie Scraping Tools
 
-Dashboard + worker untuk login otomatis ke premium portal, menyimpan cookie
+Dashboard + worker untuk login otomatis ke akun, menyimpan cookie
 sesi ke SQLite, dan mengekspor cookie dalam format JSON ekstensi
 **Cookie-Editor** — siap di-import langsung ke browser.
 
@@ -43,7 +43,7 @@ cp .env.example .env
 nano .env
 #   - SECRET_KEY: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 #   - ADMIN_PASSWORD: password untuk masuk dashboard (bukan password portal)
-#   - ACCOUNT_1_EMAIL / ACCOUNT_1_PASSWORD, ACCOUNT_2_..., dst — akun premium portal
+#   - ACCOUNT_1_EMAIL / ACCOUNT_1_PASSWORD, ACCOUNT_2_..., dst — akun yang dipakai
 
 # 3. Build
 npm run build     # compile server (tsc) + build UI (vite) -> dist/ dan web/dist/

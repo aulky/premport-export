@@ -1,8 +1,8 @@
-# Panduan Hosting Cookie Vault (untuk AI agent / operator)
+# Panduan Hosting Cookie Scraping Tools (untuk AI agent / operator)
 
 Dokumen ini adalah **runbook lengkap, langkah-demi-langkah**, ditulis supaya AI
 coding agent (Claude Code, dsb.) atau operator manusia bisa men-deploy Cookie
-Vault dari nol di VPS Linux sampai bisa diakses publik lewat HTTPS, **tanpa
+Scraping Tools dari nol di VPS Linux sampai bisa diakses publik lewat HTTPS, **tanpa
 perlu bertanya balik** kecuali ada keputusan yang memang hanya bisa diambil
 manusia (lihat bagian "Keputusan yang butuh manusia" di bawah).
 
@@ -26,7 +26,7 @@ Berhenti dan tanya operator untuk hal-hal berikut sebelum lanjut — ini bukan
 keputusan teknis yang aman ditebak:
 
 1. **Domain/subdomain** yang dipakai (untuk Nginx `server_name` & sertifikat TLS).
-2. **Kredensial akun premium portal** (`ACCOUNT_N_EMAIL`/`PASSWORD`) — ini
+2. **Kredensial akun** (`ACCOUNT_N_EMAIL`/`PASSWORD`) — ini
    kredensial asli milik operator, jangan pernah di-generate atau ditebak.
 3. **`ADMIN_PASSWORD`** dashboard — boleh digenerate AI, tapi **sampaikan
    nilainya ke operator** (jangan hanya disimpan di server tanpa dicatat).
@@ -147,7 +147,6 @@ SECRET_KEY=<hasil generate di atas>
 ADMIN_PASSWORD=<hasil generate / dari operator>
 SESSION_TTL_SEC=43200
 COOKIE_SECURE=true      # WAJIB true kalau diakses lewat HTTPS (lihat bagian 9)
-PORTAL_NAME=Premium Portal
 WORKER_TICK_SEC=15
 CHECK_INTERVAL_SEC=300
 REFRESH_BEFORE_SEC=600
@@ -310,7 +309,7 @@ sudo certbot renew --dry-run
 ```
 
 **Cek:** `https://DOMAIN_ANDA.COM/` terbuka tanpa warning sertifikat, dan
-halaman login Cookie Vault muncul (bukan 502/504 — kalau 502, cek `pm2 logs
+halaman login Cookie Scraping Tools muncul (bukan 502/504 — kalau 502, cek `pm2 logs
 cookie-vault-web` dan pastikan `HOST=127.0.0.1` & `PORT=3000` di `.env` cocok
 dengan `proxy_pass` di Nginx).
 
@@ -349,7 +348,7 @@ pm2 restart cookie-vault-web cookie-vault-worker
 dan pastikan tidak ada halaman putih kosong (lihat Troubleshooting #3 kalau
 terjadi).
 
-## 13. Menambah/mengganti akun premium portal
+## 13. Menambah/mengganti akun
 
 Edit `.env`, tambah/ubah baris `ACCOUNT_N_LABEL/EMAIL/PASSWORD`, lalu:
 
