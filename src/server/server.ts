@@ -24,13 +24,16 @@ import {
   listPortalItems,
   getPortalItem,
   markItemFetch,
+  markItemCredsFetch,
   saveItemCookies,
+  saveItemCreds,
   latestItemCookies,
+  latestItemCreds,
   latestCookies,
   recentRuns,
   syncAccountsFromEnv,
 } from "./accounts.js";
-import { fetchItemCookiesLive } from "./portal.js";
+import { fetchItemCookiesLive, fetchItemCredsLive } from "./portal.js";
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
@@ -222,6 +225,9 @@ app.get<{ Params: { id: string; appId: string } }>("/api/accounts/:id/apps/:appI
     lastFetchedAt: it.last_fetched_at,
     lastCookieCount: it.last_cookie_count,
     lastError: it.last_error,
+    lastCredsFetchedAt: it.last_creds_fetched_at,
+    lastCredsError: it.last_creds_error,
+    hasCreds: !!it.has_creds,
   }));
 });
 
@@ -310,6 +316,57 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   logRun(accountId, "item-fetch", true, `${itemLabel}: user fetched ${res.cookies.length} cookies`, Date.now() - t0);
   logGet(true, undefined, res.cookies.length);
   return { ok: true, cookieCount: res.cookies.length };
+});
+
+/**
+ * Ambil username/password untuk 1 item bertipe "autofill" (mis. MediaFire,
+ * QuillBot, Bloomberg) -- SELALU manual (tombol "Get"/"Refresh"), sama seperti
+ * fetch cookie. Mengembalikan kredensial langsung (bukan file unduhan),
+ * karena dipakai untuk ditampilkan di layar, bukan di-import ke ekstensi.
+ */
+app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:itemId/creds/fetch", USER, async (req, reply) => {
+  const { id: accountId, itemId } = req.params;
+  const t0 = Date.now();
+  const item = getPortalItem(accountId, itemId);
+  const itemLabel = item?.item_name ?? itemId;
+  const logGet = (ok: boolean, message?: string) => logAccess(req, "creds-get", { ok, accountId, itemId, message });
+  if (!item) {
+    logGet(false, "Item not found");
+    reply.code(404);
+    return { error: "Item not found. Refresh the app catalog first." };
+  }
+  const portalCookies = latestCookies(accountId);
+  const accessToken = portalCookies?.find((c) => c.name === "accessToken")?.value;
+  if (!accessToken) {
+    logRun(accountId, "item-fetch", false, `${itemLabel}: no valid login session yet`, Date.now() - t0);
+    logGet(false, "No valid login session yet");
+    reply.code(409);
+    return { error: "No valid login session for this account yet. Wait for the worker to sign in." };
+  }
+  const res = await fetchItemCredsLive(accessToken, itemId);
+  if (!res.ok) {
+    markItemCredsFetch(accountId, itemId, { error: res.error });
+    logRun(accountId, "item-fetch", false, `${itemLabel}: ${res.error}`, Date.now() - t0);
+    logGet(false, res.error);
+    reply.code(502);
+    return { error: res.error };
+  }
+  saveItemCreds(accountId, itemId, { url: res.url, username: res.username, password: res.password });
+  markItemCredsFetch(accountId, itemId, { error: null });
+  logRun(accountId, "item-fetch", true, `${itemLabel}: user fetched credentials`, Date.now() - t0);
+  logGet(true);
+  return { ok: true, url: res.url, username: res.username, password: res.password };
+});
+
+/** Kredensial tersimpan untuk 1 item, tanpa memanggil provider lagi (lihat juga .../creds/fetch). */
+app.get<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:itemId/creds", USER, async (req, reply) => {
+  const creds = latestItemCreds(req.params.id, req.params.itemId);
+  if (!creds) {
+    reply.code(404);
+    return { error: "No credentials for this item yet. Click 'Get' in the dashboard first." };
+  }
+  logAccess(req, "creds-view", { ok: true, accountId: req.params.id, itemId: req.params.itemId });
+  return creds;
 });
 
 /** Export format Cookie-Editor JSON untuk 1 item/app tujuan, siap import ke ekstensi. */

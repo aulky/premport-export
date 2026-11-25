@@ -5,7 +5,7 @@ import { db, now } from "./db.js";
 /** Riwayat akses dashboard: siapa (akun, IP, perangkat) login dan mengambil cookie apa. */
 
 const AUTH_EVENTS = ["login", "logout"] as const;
-const COOKIE_EVENTS = ["cookie-get", "cookie-download", "session-download"] as const;
+const COOKIE_EVENTS = ["cookie-get", "cookie-download", "session-download", "creds-get", "creds-view"] as const;
 export type AccessType = "auth" | "cookie";
 export type AccessEvent = (typeof AUTH_EVENTS)[number] | (typeof COOKIE_EVENTS)[number];
 

@@ -15,6 +15,8 @@ const EVENT_LABEL: Record<AccessLogDto["event"], string> = {
   "cookie-get": "Get cookie",
   "cookie-download": "Download cookie",
   "session-download": "Download session cookie",
+  "creds-get": "Get credentials",
+  "creds-view": "View credentials",
 };
 
 const formatTime = (ts: number) =>
@@ -76,7 +78,7 @@ export function AccessLog({ type, ip, onIpChange }: { type: "auth" | "cookie"; i
         <CardDescription>
           {type === "auth"
             ? "Who signed in to the dashboard, including attempts with a wrong password."
-            : "Which cookies were fetched and downloaded. Click an IP to see only its activity."}
+            : "Which cookies and app credentials were fetched, viewed, or downloaded. Click an IP to see only its activity."}
         </CardDescription>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">

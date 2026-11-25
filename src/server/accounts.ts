@@ -2,6 +2,7 @@ import { config, type AccountConfig } from "./config.js";
 import { db, now } from "./db.js";
 import { decrypt, encrypt } from "./crypto.js";
 import type { EditorCookie } from "./cookies.js";
+import type { PortalCreds } from "./portal.js";
 
 export interface AccountRow {
   id: string;
@@ -175,7 +176,14 @@ export interface PortalItemRow {
   last_fetched_at: number | null;
   last_cookie_count: number | null;
   last_error: string | null;
+  last_creds_fetched_at: number | null;
+  last_creds_error: string | null;
+  has_creds: number;
 }
+
+const ITEM_COLUMNS = `i.app_id, i.item_id, i.item_name, i.url, i.last_fetched_at, i.last_cookie_count, i.last_error,
+  i.last_creds_fetched_at, i.last_creds_error,
+  (SELECT 1 FROM item_creds_snapshots c WHERE c.account_id=i.account_id AND c.item_id=i.item_id) AS has_creds`;
 
 export function listPortalApps(accountId: string): PortalAppRow[] {
   return db
@@ -185,15 +193,13 @@ export function listPortalApps(accountId: string): PortalAppRow[] {
 
 export function listPortalItems(accountId: string, appId: string): PortalItemRow[] {
   return db
-    .prepare(
-      "SELECT app_id, item_id, item_name, url, last_fetched_at, last_cookie_count, last_error FROM portal_items WHERE account_id=? AND app_id=? AND active=1 ORDER BY item_name",
-    )
+    .prepare(`SELECT ${ITEM_COLUMNS} FROM portal_items i WHERE i.account_id=? AND i.app_id=? AND i.active=1 ORDER BY i.item_name`)
     .all(accountId, appId) as PortalItemRow[];
 }
 
 export function getPortalItem(accountId: string, itemId: string): (PortalItemRow & { url: string | null }) | undefined {
   return db
-    .prepare("SELECT app_id, item_id, item_name, url, last_fetched_at, last_cookie_count, last_error FROM portal_items WHERE account_id=? AND item_id=?")
+    .prepare(`SELECT ${ITEM_COLUMNS} FROM portal_items i WHERE i.account_id=? AND i.item_id=?`)
     .get(accountId, itemId) as PortalItemRow | undefined;
 }
 
@@ -205,6 +211,31 @@ export function markItemFetch(accountId: string, itemId: string, patch: { cookie
     accountId,
     itemId,
   );
+}
+
+export function markItemCredsFetch(accountId: string, itemId: string, patch: { error?: string | null }) {
+  db.prepare("UPDATE portal_items SET last_creds_fetched_at=?, last_creds_error=? WHERE account_id=? AND item_id=?").run(
+    now(),
+    patch.error ?? null,
+    accountId,
+    itemId,
+  );
+}
+
+/** Hanya baris terbaru yang disimpan (bukan histori) -- lihat catatan di db.ts. */
+export function saveItemCreds(accountId: string, itemId: string, creds: PortalCreds) {
+  db.prepare(
+    `INSERT INTO item_creds_snapshots(account_id, item_id, creds_enc, captured_at) VALUES (?,?,?,?)
+     ON CONFLICT(account_id, item_id) DO UPDATE SET creds_enc=excluded.creds_enc, captured_at=excluded.captured_at`,
+  ).run(accountId, itemId, encrypt(JSON.stringify(creds)), now());
+}
+
+export function latestItemCreds(accountId: string, itemId: string): (PortalCreds & { fetchedAt: number }) | null {
+  const row = db
+    .prepare("SELECT creds_enc, captured_at FROM item_creds_snapshots WHERE account_id=? AND item_id=?")
+    .get(accountId, itemId) as { creds_enc: string; captured_at: number } | undefined;
+  if (!row) return null;
+  return { ...(JSON.parse(decrypt(row.creds_enc)) as PortalCreds), fetchedAt: row.captured_at };
 }
 
 const KEEP_ITEM_SNAPSHOTS = 3;

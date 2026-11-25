@@ -83,6 +83,20 @@ CREATE TABLE IF NOT EXISTS item_cookie_snapshots (
   captured_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_item_cookie ON item_cookie_snapshots(account_id, item_id, id DESC);
+
+-- Kredensial (username/password) untuk item app bertipe "autofill" (mis.
+-- MediaFire, QuillBot, Bloomberg) -- app ini membagikan akun lewat
+-- username/password, bukan cookie. HANYA terisi lewat aksi manual
+-- "Get"/"Refresh" di dashboard, sama seperti item_cookie_snapshots. Hanya
+-- baris TERBARU yang disimpan (bukan histori) supaya password lama tidak
+-- menumpuk di database.
+CREATE TABLE IF NOT EXISTS item_creds_snapshots (
+  account_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  creds_enc TEXT NOT NULL,
+  captured_at INTEGER NOT NULL,
+  PRIMARY KEY (account_id, item_id)
+);
 CREATE TABLE IF NOT EXISTS runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id TEXT NOT NULL,
@@ -127,8 +141,11 @@ CREATE TABLE IF NOT EXISTS users (
 // Kolom tambahan untuk database buatan versi sebelumnya. IMMEDIATE karena web dan
 // worker bisa start bersamaan.
 db.transaction(() => {
-  const columns = db.pragma("table_info(access_logs)") as { name: string }[];
-  if (!columns.some((c) => c.name === "username")) db.exec("ALTER TABLE access_logs ADD COLUMN username TEXT");
+  const accessLogCols = db.pragma("table_info(access_logs)") as { name: string }[];
+  if (!accessLogCols.some((c) => c.name === "username")) db.exec("ALTER TABLE access_logs ADD COLUMN username TEXT");
+  const itemCols = db.pragma("table_info(portal_items)") as { name: string }[];
+  if (!itemCols.some((c) => c.name === "last_creds_fetched_at")) db.exec("ALTER TABLE portal_items ADD COLUMN last_creds_fetched_at INTEGER");
+  if (!itemCols.some((c) => c.name === "last_creds_error")) db.exec("ALTER TABLE portal_items ADD COLUMN last_creds_error TEXT");
 }).immediate();
 
 export const now = () => Math.floor(Date.now() / 1000);

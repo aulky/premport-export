@@ -9,6 +9,17 @@ Endpoint (semua butuh header Authorization: Bearer <accessToken>):
   GET  /extensions/init/full   -> daftar app + item/slot akun yang bisa diklaim
   POST /extensions/get-cookies {"itemId": <items[]._id>, "url": <items[].url>}
                                 -> cookie siap pakai untuk 1 item tsb
+  GET  /items/creds/single/{itemId} -> {url, username, password} untuk app
+                                bertipe "autofill" (mis. MediaFire, QuillBot,
+                                Bloomberg) -- akun yang dipakai bersama lewat
+                                username/password, bukan cookie. Ditemukan
+                                lewat reverse-engineering autofill.<hash>.js +
+                                static/background/index.js milik ekstensi
+                                (handler pesan "detail-account" ->
+                                services/auto-login.service.ts ->
+                                ENDPOINT.DETAIL_ACCOUNT, string-nya sendiri
+                                dienkode di array string obfuscator sehingga
+                                harus didekode manual).
 
 PENTING: beberapa app (terbukti dari teks di dalam kode ekstensi sendiri,
 mis. Netflix: "dibatasi untuk pilih 10 akun dalam 24 jam") punya limit
@@ -29,6 +40,10 @@ Mode "get-cookies" -- input: {"mode":"get-cookies","accessToken":str,"itemId":st
    dugaan awal; bentuk ini ditemukan lewat percobaan langsung, bukan dari
    kode ekstensi.)
   output: {"ok":true,"cookies":[...format Cookie-Editor, identik persis...]}
+        | {"ok":false,"error":str}
+
+Mode "get-creds" -- input: {"mode":"get-creds","accessToken":str,"itemId":str}
+  output: {"ok":true,"url":str|null,"username":str|null,"password":str|null}
         | {"ok":false,"error":str}
 """
 import json
@@ -155,6 +170,22 @@ def get_cookies(session, headers, item_id):
     return {"ok": True, "cookies": cookies}
 
 
+def get_creds(session, headers, item_id):
+    # GET /items/creds/single/{itemId} -> {"data":{"url":str,"username":str,"password":str},"message":str}
+    r = _get(session, headers, f"/items/creds/single/{item_id}")
+    if r.status_code != 200:
+        return {"ok": False, "error": f"get-creds status {r.status_code}: {r.text[:400]}"}
+    try:
+        payload = r.json()
+    except Exception:
+        return {"ok": False, "error": f"get-creds bukan JSON: {r.text[:400]}"}
+    data = payload.get("data") or {}
+    username, password = data.get("username"), data.get("password")
+    if not username and not password:
+        return {"ok": False, "error": "unrecognized response format (no username/password)"}
+    return {"ok": True, "url": data.get("url"), "username": username, "password": password}
+
+
 def main():
     req = json.loads(sys.stdin.read())
     mode = req.get("mode")
@@ -177,6 +208,12 @@ def main():
             result = {"ok": False, "error": "itemId is required"}
         else:
             result = get_cookies(session, headers, item_id)
+    elif mode == "get-creds":
+        item_id = req.get("itemId")
+        if not item_id:
+            result = {"ok": False, "error": "itemId is required"}
+        else:
+            result = get_creds(session, headers, item_id)
     else:
         result = {"ok": False, "error": f"unknown mode: {mode!r}"}
 

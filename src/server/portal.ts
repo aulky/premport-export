@@ -157,4 +157,21 @@ export function fetchItemCookiesLive(accessToken: string, itemId: string) {
   return runPython<{ ok: true; cookies: EditorCookie[] }>("apps_client.py", { mode: "get-cookies", accessToken, itemId });
 }
 
-export type { ListAppsResult, GetCookiesResult };
+export interface PortalCreds {
+  url: string | null;
+  username: string | null;
+  password: string | null;
+}
+type GetCredsResult = ({ ok: true } & PortalCreds) | { ok: false; error: string };
+
+/**
+ * Username/password untuk app bertipe "autofill" (mis. MediaFire, QuillBot,
+ * Bloomberg) -- app ini membagikan akun lewat kredensial, bukan cookie.
+ * Sama seperti fetchItemCookiesLive: HANYA dipanggil atas aksi eksplisit
+ * pengguna (klik "Get"/"Refresh"), tidak pernah otomatis.
+ */
+export function fetchItemCredsLive(accessToken: string, itemId: string) {
+  return runPython<{ ok: true } & PortalCreds>("apps_client.py", { mode: "get-creds", accessToken, itemId });
+}
+
+export type { ListAppsResult, GetCookiesResult, GetCredsResult };

@@ -30,6 +30,15 @@ export interface ItemDto {
   lastFetchedAt: number | null;
   lastCookieCount: number | null;
   lastError: string | null;
+  lastCredsFetchedAt: number | null;
+  lastCredsError: string | null;
+  hasCreds: boolean;
+}
+
+export interface CredsDto {
+  url: string | null;
+  username: string | null;
+  password: string | null;
 }
 
 export interface RunDto {
@@ -57,7 +66,7 @@ export interface UserDto {
 export interface AccessLogDto {
   id: number;
   at: number;
-  event: "login" | "logout" | "cookie-get" | "cookie-download" | "session-download";
+  event: "login" | "logout" | "cookie-get" | "cookie-download" | "session-download" | "creds-get" | "creds-view";
   ok: number;
   ip: string;
   user_agent: string | null;
@@ -108,6 +117,10 @@ export const api = {
   items: (accountId: string, appId: string) => req<ItemDto[]>(`/api/accounts/${accountId}/apps/${encodeURIComponent(appId)}/items`),
   fetchItemCookies: (accountId: string, itemId: string) =>
     req<{ ok: true; cookieCount: number }>(`/api/accounts/${accountId}/items/${encodeURIComponent(itemId)}/fetch`, { method: "POST", body: "{}" }),
+  fetchItemCreds: (accountId: string, itemId: string) =>
+    req<{ ok: true } & CredsDto>(`/api/accounts/${accountId}/items/${encodeURIComponent(itemId)}/creds/fetch`, { method: "POST", body: "{}" }),
+  itemCreds: (accountId: string, itemId: string) =>
+    req<CredsDto>(`/api/accounts/${accountId}/items/${encodeURIComponent(itemId)}/creds`),
   refreshAccount: (accountId: string) =>
     req<{ ok: true; cookieCount: number }>(`/api/accounts/${accountId}/refresh`, { method: "POST", body: "{}" }),
   refreshAll: () => req<{ results: { id: string; ok: boolean; error?: string; cookieCount?: number }[] }>("/api/accounts/refresh-all", { method: "POST", body: "{}" }),

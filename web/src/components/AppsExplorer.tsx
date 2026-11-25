@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, Download, RefreshCw, Search } from "lucide-react";
-import { api, type AppDto, type ItemDto } from "@/lib/api";
+import { ChevronLeft, Copy, Download, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
+import { api, type AppDto, type CredsDto, type ItemDto } from "@/lib/api";
 import { plural } from "@/lib/utils";
 
 function timeAgo(ts: number | null) {
@@ -19,10 +19,44 @@ function timeAgo(ts: number | null) {
 
 const TARGET_LABEL: Record<string, string> = {
   cookies: "Cookie (Get available)",
-  autofill: "Form autofill",
+  autofill: "Account credentials (Get available)",
   list: "Account list",
   link: "Direct link",
 };
+
+/** Baris username/password untuk 1 item "autofill" -- disembunyikan sampai diklik. */
+function CredsRow({ creds }: { creds: CredsDto }) {
+  const [shown, setShown] = useState(false);
+  const copy = (text: string | null) => text && void navigator.clipboard.writeText(text);
+  const field = (label: string, value: string | null, mask: boolean) =>
+    value && (
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className="w-16 shrink-0 text-xs text-muted-foreground">{label}</span>
+        <span className="truncate font-mono text-xs">{mask && !shown ? "•".repeat(Math.min(value.length, 14)) : value}</span>
+        <Button size="icon-sm" variant="ghost" className="size-6 shrink-0" title={`Copy ${label.toLowerCase()}`} onClick={() => copy(value)}>
+          <Copy className="size-3" />
+        </Button>
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-1 rounded-lg bg-secondary px-2.5 py-2">
+      {field("Username", creds.username, false)}
+      <div className="flex items-center gap-1.5">
+        {field("Password", creds.password, true)}
+        {creds.password && (
+          <Button size="icon-sm" variant="ghost" className="size-6 shrink-0" title={shown ? "Hide password" : "Show password"} onClick={() => setShown((v) => !v)}>
+            {shown ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+          </Button>
+        )}
+      </div>
+      {creds.url && (
+        <a href={creds.url} target="_blank" rel="noreferrer" className="truncate text-xs text-brand underline-offset-2 hover:underline">
+          {creds.url}
+        </a>
+      )}
+    </div>
+  );
+}
 
 /** Katalog app + item/slot 1 akun -- search, pilih app, pilih item, Get cookie, download. */
 export function AppsExplorer({ accountId }: { accountId: string }) {
@@ -33,6 +67,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
   const [itemSearch, setItemSearch] = useState("");
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creds, setCreds] = useState<Record<string, CredsDto>>({});
 
   useEffect(() => {
     setApps(null);
@@ -47,6 +82,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
       return;
     }
     setItems(null);
+    setCreds({});
     void api.items(accountId, selectedApp.appId).then(setItems);
   }, [accountId, selectedApp]);
 
@@ -63,6 +99,40 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
       await reloadItems();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
+  /** "Get"/"Refresh" -- selalu ambil ulang dari provider dan langsung tampilkan hasilnya. */
+  async function handleGetCreds(itemId: string) {
+    setBusyItem(itemId);
+    setError(null);
+    try {
+      const res = await api.fetchItemCreds(accountId, itemId);
+      setCreds((c) => ({ ...c, [itemId]: res }));
+      await reloadItems();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
+  /** "View" -- tampilkan kredensial yang sudah tersimpan, tanpa memanggil provider lagi. */
+  async function handleViewCreds(itemId: string) {
+    setBusyItem(itemId);
+    setError(null);
+    try {
+      setCreds((c) => ({ ...c, [itemId]: null as unknown as CredsDto }));
+      const res = await api.itemCreds(accountId, itemId);
+      setCreds((c) => ({ ...c, [itemId]: res }));
+    } catch (e) {
+      setError((e as Error).message);
+      setCreds((c) => {
+        const { [itemId]: _drop, ...rest } = c;
+        return rest;
+      });
     } finally {
       setBusyItem(null);
     }
@@ -95,7 +165,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
         </CardTitle>
         <CardDescription>
           {selectedApp
-            ? "Click \"Get\" to fetch this item's cookies (manual, once per click -- some apps have a daily limit set by the provider)."
+            ? "Click \"Get\" to fetch this item's cookies or credentials (manual, once per click -- some apps have a daily limit set by the provider)."
             : "The catalog syncs automatically on sign-in/refresh. Search to narrow it down."}
         </CardDescription>
       </CardHeader>
@@ -141,7 +211,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                       <span>{plural(app.itemCount, "item")}</span>
                     </div>
                   </div>
-                  <Badge variant={app.targetType === "cookies" ? "success" : "secondary"}>
+                  <Badge variant={app.targetType === "cookies" || app.targetType === "autofill" ? "success" : "secondary"}>
                     {TARGET_LABEL[app.targetType ?? ""] ?? app.targetType ?? "?"}
                   </Badge>
                 </button>
@@ -158,7 +228,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                 dangerouslySetInnerHTML={{ __html: selectedApp.note }}
               />
             )}
-            {selectedApp.targetType !== "cookies" && (
+            {selectedApp.targetType !== "cookies" && selectedApp.targetType !== "autofill" && (
               <p className="rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
                 This app uses the <strong>{TARGET_LABEL[selectedApp.targetType ?? ""] ?? selectedApp.targetType}</strong>,
                 method; automatic cookie export is not supported for it yet.
@@ -175,32 +245,57 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                 <p className="text-sm text-muted-foreground">No items match your search.</p>
               )}
               {filteredItems?.map((item) => (
-                <li key={item.itemId} className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{item.itemName ?? item.itemId}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {item.lastCookieCount != null ? `${plural(item.lastCookieCount, "cookie")} · ${timeAgo(item.lastFetchedAt)}` : "never fetched"}
-                      {item.lastError && <span className="text-destructive"> · {item.lastError}</span>}
+                <li key={item.itemId} className="flex flex-col gap-2 rounded-xl border border-border px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{item.itemName ?? item.itemId}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {selectedApp.targetType === "autofill"
+                          ? item.lastCredsFetchedAt != null
+                            ? `fetched ${timeAgo(item.lastCredsFetchedAt)}`
+                            : "never fetched"
+                          : item.lastCookieCount != null
+                            ? `${plural(item.lastCookieCount, "cookie")} · ${timeAgo(item.lastFetchedAt)}`
+                            : "never fetched"}
+                        {(selectedApp.targetType === "autofill" ? item.lastCredsError : item.lastError) && (
+                          <span className="text-destructive"> · {selectedApp.targetType === "autofill" ? item.lastCredsError : item.lastError}</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {selectedApp.targetType === "cookies" && (
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGet(item.itemId)}>
-                        <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
-                        Get
-                      </Button>
-                      {item.lastCookieCount != null && (
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          title="Export cookie.json (format Cookie-Editor)"
-                          onClick={() => window.open(api.itemCookiesUrl(accountId, item.itemId), "_blank")}
-                        >
-                          <Download className="size-3.5" />
+                    {selectedApp.targetType === "cookies" && (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGet(item.itemId)}>
+                          <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
+                          Get
                         </Button>
-                      )}
-                    </div>
-                  )}
+                        {item.lastCookieCount != null && (
+                          <Button
+                            size="icon-sm"
+                            variant="outline"
+                            title="Export cookie.json (format Cookie-Editor)"
+                            onClick={() => window.open(api.itemCookiesUrl(accountId, item.itemId), "_blank")}
+                          >
+                            <Download className="size-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {selectedApp.targetType === "autofill" && (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {item.hasCreds && !creds[item.itemId] && (
+                          <Button size="sm" variant="outline" disabled={busyItem === item.itemId} onClick={() => void handleViewCreds(item.itemId)}>
+                            <Eye className="size-3.5" />
+                            View
+                          </Button>
+                        )}
+                        <Button size="sm" variant="secondary" disabled={busyItem === item.itemId} onClick={() => void handleGetCreds(item.itemId)}>
+                          <RefreshCw className={`size-3.5 ${busyItem === item.itemId ? "animate-spin" : ""}`} />
+                          {item.hasCreds ? "Refresh" : "Get"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {selectedApp.targetType === "autofill" && creds[item.itemId] && <CredsRow creds={creds[item.itemId]!} />}
                 </li>
               ))}
             </ul>
