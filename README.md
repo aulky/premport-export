@@ -181,6 +181,27 @@ proxy (`TRUST_PROXY`, default `loopback` = Nginx on the same server). If another
 proxy sits in front (such as Cloudflare), configure Nginx to forward the real IP
 (`real_ip_header`), otherwise that proxy's IP is recorded.
 
+## Search engines and link previews
+
+The server adds the title, description, Open Graph and Twitter tags, and
+schema.org data that search engines and chat apps read, and serves:
+
+| Address | Content |
+|---|---|
+| `/about` | Public description of the tool, readable without JavaScript |
+| `/robots.txt` | Allows crawling, except `/api/` |
+| `/sitemap.xml` | `/` and `/about` |
+| `/llms.txt` | Summary for AI assistants |
+| `/og-image.png` | Preview image shown when the link is shared |
+| `/favicon.ico`, `/favicon.svg` | Icon shown in browsers and search results |
+
+Set `PUBLIC_URL=https://your-domain.com` in `.env`. Pages inside the app are
+marked `noindex`. The texts are in `src/server/seo.ts`.
+
+Being indexed, ranked, or recommended by a search engine or AI assistant is
+decided by them and cannot be guaranteed. To get started: serve the site over
+HTTPS, then submit the sitemap in Google Search Console and Bing Webmaster Tools.
+
 ## Security
 
 - All cookies in SQLite are encrypted (AES-256-GCM) with `SECRET_KEY`.

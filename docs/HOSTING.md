@@ -143,6 +143,7 @@ SECRET_KEY=<generated above>
 ADMIN_PASSWORD=<generated / from the operator>
 SESSION_TTL_SEC=43200
 COOKIE_SECURE=true      # MUST be true when served over HTTPS (section 10)
+PUBLIC_URL=https://YOUR_DOMAIN.COM   # for link previews, canonical URLs, sitemap
 WORKER_TICK_SEC=15
 CHECK_INTERVAL_SEC=300
 REFRESH_BEFORE_SEC=600
@@ -336,6 +337,16 @@ pm2 restart cookie-vault-web
    Don't share the admin password.
 
 If everything passes, the deployment is complete.
+
+### 11.1 Link previews and search engines (optional)
+
+1. `curl -s https://YOUR_DOMAIN.COM/ | grep og:image` shows your domain, and
+   `https://YOUR_DOMAIN.COM/og-image.png` opens in a browser.
+2. Send the link in WhatsApp: the preview shows the logo, title, and description.
+   WhatsApp caches previews; add `?v=2` to the link to force a new one.
+3. For search engines, add the domain in Google Search Console and Bing Webmaster
+   Tools, then submit `https://YOUR_DOMAIN.COM/sitemap.xml`. Indexing and ranking
+   are decided by them and are not guaranteed.
 
 ## 12. Update / redeploy (after code changes)
 
