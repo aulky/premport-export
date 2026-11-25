@@ -20,6 +20,7 @@ import {
 import { fetchItemCookiesLive } from "./portal.js";
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
+import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
 
 assertServerConfig();
 syncAccountsFromEnv();
@@ -27,7 +28,10 @@ syncAccountsFromEnv();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const uiDist = join(__dirname, "../../web/dist");
 
-const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
+const app = Fastify({
+  logger: { level: process.env.LOG_LEVEL ?? "info" },
+  trustProxy: config.trustProxy || false,
+});
 
 await app.register(fastifyCookie);
 // wildcard:true (default) -- melayani file di web/dist per-request (bukan daftar
@@ -51,9 +55,11 @@ app.addHook("onRequest", async (req, reply) => {
 app.post<{ Body: { password: string } }>("/api/login", async (req, reply) => {
   const { password } = req.body ?? ({} as { password: string });
   if (typeof password !== "string" || !safeEqual(password, config.adminPassword)) {
+    logAccess(req, "login", { ok: false, message: "Password salah" });
     reply.code(401);
     return { error: "Password salah" };
   }
+  logAccess(req, "login", { ok: true });
   const token = makeSession(config.sessionTtlSec);
   reply.setCookie(COOKIE_NAME, token, {
     httpOnly: true,
@@ -67,6 +73,7 @@ app.post<{ Body: { password: string } }>("/api/login", async (req, reply) => {
 
 app.post("/api/logout", async (req, reply) => {
   reply.clearCookie(COOKIE_NAME, { path: "/" });
+  logAccess(req, "logout", { ok: true });
   return { ok: true };
 });
 
@@ -193,7 +200,10 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   const t0 = Date.now();
   const item = getPortalItem(accountId, itemId);
   const itemLabel = item?.item_name ?? itemId;
+  const logGet = (ok: boolean, message?: string, cookieCount?: number) =>
+    logAccess(req, "cookie-get", { ok, accountId, itemId, message, cookieCount });
   if (!item) {
+    logGet(false, "Item tidak ditemukan");
     reply.code(404);
     return { error: "Item tidak ditemukan. Coba refresh katalog app dulu." };
   }
@@ -201,6 +211,7 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   const accessToken = portalCookies?.find((c) => c.name === "accessToken")?.value;
   if (!accessToken) {
     logRun(accountId, "item-fetch", false, `${itemLabel}: belum ada sesi login yang valid`, Date.now() - t0);
+    logGet(false, "Belum ada sesi login yang valid");
     reply.code(409);
     return { error: "Belum ada sesi login yang valid untuk akun ini. Tunggu worker login dulu." };
   }
@@ -208,12 +219,14 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   if (!res.ok) {
     markItemFetch(accountId, itemId, { error: res.error });
     logRun(accountId, "item-fetch", false, `${itemLabel}: ${res.error}`, Date.now() - t0);
+    logGet(false, res.error);
     reply.code(502);
     return { error: res.error };
   }
   saveItemCookies(accountId, itemId, res.cookies);
   markItemFetch(accountId, itemId, { cookieCount: res.cookies.length, error: null });
   logRun(accountId, "item-fetch", true, `${itemLabel}: user mengambil ${res.cookies.length} cookie`, Date.now() - t0);
+  logGet(true, undefined, res.cookies.length);
   return { ok: true, cookieCount: res.cookies.length };
 });
 
@@ -223,6 +236,9 @@ app.get<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:it
   if (!cookies) {
     reply.code(404);
     return { error: "Belum ada cookie untuk item ini. Klik 'Get' dulu di dashboard." };
+  }
+  if (req.method !== "HEAD") {
+    logAccess(req, "cookie-download", { ok: true, accountId: req.params.id, itemId: req.params.itemId, cookieCount: cookies.length });
   }
   reply.header("Content-Disposition", `attachment; filename="${req.params.itemId}-cookies.json"`);
   return cookies;
@@ -235,6 +251,9 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id/cookies.json", async (req
     reply.code(404);
     return { error: "Belum ada snapshot cookie untuk akun ini" };
   }
+  if (req.method !== "HEAD") {
+    logAccess(req, "session-download", { ok: true, accountId: req.params.id, cookieCount: cookies.length });
+  }
   reply.header("Content-Disposition", `attachment; filename="${req.params.id}-cookies.json"`);
   return cookies;
 });
@@ -242,6 +261,13 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id/cookies.json", async (req
 app.get("/api/runs", async (req) => {
   const limit = Number((req.query as { limit?: string }).limit) || 50;
   return recentRuns(Math.min(limit, 1000));
+});
+
+/** Riwayat akses: type=auth (login/logout) atau type=cookie (ambil/unduh cookie). */
+app.get("/api/access-logs", async (req) => {
+  const q = req.query as { type?: string; page?: string; ip?: string };
+  const page = Math.min(Math.max(Math.floor(Number(q.page)) || 1, 1), KEEP_ACCESS_LOGS);
+  return listAccessLogs(q.type === "cookie" ? "cookie" : "auth", page, typeof q.ip === "string" ? q.ip.trim() : "");
 });
 
 app.setNotFoundHandler((req, reply) => {

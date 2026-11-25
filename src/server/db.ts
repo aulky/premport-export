@@ -94,6 +94,24 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_at ON runs(at DESC);
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
+
+-- Riwayat akses dashboard (lihat access.ts).
+CREATE TABLE IF NOT EXISTS access_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  event TEXT NOT NULL,
+  ok INTEGER NOT NULL,
+  ip TEXT NOT NULL,
+  user_agent TEXT,
+  account_id TEXT,
+  account_label TEXT,
+  app_name TEXT,
+  item_id TEXT,
+  item_name TEXT,
+  cookie_count INTEGER,
+  message TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_access_event ON access_logs(event, id DESC);
 `);
 
 export const now = () => Math.floor(Date.now() / 1000);

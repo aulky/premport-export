@@ -73,6 +73,8 @@ export const config = {
   adminPassword: env.ADMIN_PASSWORD ?? "",
   sessionTtlSec: num(env.SESSION_TTL_SEC, 60 * 60 * 12),
   secureCookie: bool("COOKIE_SECURE", false),
+  // Proxy yang header X-Forwarded-For-nya dipercaya untuk menentukan IP asli.
+  trustProxy: str("TRUST_PROXY", "loopback"),
 
   worker: {
     tickSec: num(env.WORKER_TICK_SEC, 15),
