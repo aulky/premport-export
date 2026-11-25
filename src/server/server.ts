@@ -22,7 +22,9 @@ import {
   listAccounts,
   listPortalApps,
   listPortalItems,
+  getPortalApp,
   getPortalItem,
+  ensurePortalItem,
   markItemFetch,
   markItemCredsFetch,
   saveItemCookies,
@@ -33,7 +35,7 @@ import {
   recentRuns,
   syncAccountsFromEnv,
 } from "./accounts.js";
-import { fetchItemCookiesLive, fetchItemCredsLive } from "./portal.js";
+import { fetchItemCookiesLive, fetchItemCredsLive, fetchListAccountsLive } from "./portal.js";
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
@@ -367,6 +369,56 @@ app.get<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:it
   }
   logAccess(req, "creds-view", { ok: true, accountId: req.params.id, itemId: req.params.itemId });
   return creds;
+});
+
+/**
+ * App bertipe "list" (mis. Bloomberg, Consensus): beberapa item membagikan 1
+ * kumpulan akun yang sama -- SELALU manual (tombol "Get accounts"/"Refresh"),
+ * sama seperti cookie/kredensial lain. Satu panggilan bisa mengembalikan
+ * beberapa akun sekaligus (satu per item aktif).
+ */
+app.post<{ Params: { id: string; appId: string } }>("/api/accounts/:id/apps/:appId/list-accounts/fetch", USER, async (req, reply) => {
+  const { id: accountId, appId } = req.params;
+  const t0 = Date.now();
+  const app_ = getPortalApp(accountId, appId);
+  const appLabel = app_?.name ?? appId;
+  const logGet = (ok: boolean, message?: string) => logAccess(req, "creds-get", { ok, accountId, message });
+  if (!app_?.url) {
+    logGet(false, "App not found or has no list-account URL");
+    reply.code(404);
+    return { error: "App not found. Refresh the app catalog first." };
+  }
+  let typeSlug: string;
+  try {
+    typeSlug = decodeURIComponent(new URL(app_.url).pathname.split("/").filter(Boolean).pop()!);
+  } catch {
+    logGet(false, "Could not read the app's list-account URL");
+    reply.code(500);
+    return { error: "Could not read this app's list-account URL." };
+  }
+  const portalCookies = latestCookies(accountId);
+  const accessToken = portalCookies?.find((c) => c.name === "accessToken")?.value;
+  if (!accessToken) {
+    logRun(accountId, "item-fetch", false, `${appLabel}: no valid login session yet`, Date.now() - t0);
+    logGet(false, "No valid login session yet");
+    reply.code(409);
+    return { error: "No valid login session for this account yet. Wait for the worker to sign in." };
+  }
+  const res = await fetchListAccountsLive(accessToken, typeSlug);
+  if (!res.ok) {
+    logRun(accountId, "item-fetch", false, `${appLabel}: ${res.error}`, Date.now() - t0);
+    logGet(false, res.error);
+    reply.code(502);
+    return { error: res.error };
+  }
+  for (const a of res.accounts) {
+    ensurePortalItem(accountId, appId, { itemId: a.itemId, itemName: a.itemName, url: a.url });
+    saveItemCreds(accountId, a.itemId, { url: a.url, username: a.username, password: a.password });
+    markItemCredsFetch(accountId, a.itemId, { error: null });
+  }
+  logRun(accountId, "item-fetch", true, `${appLabel}: user fetched ${res.accounts.length} account(s)`, Date.now() - t0);
+  logGet(true, `${res.accounts.length} account(s) for ${appLabel}`);
+  return { ok: true, accounts: res.accounts };
 });
 
 /** Export format Cookie-Editor JSON untuk 1 item/app tujuan, siap import ke ekstensi. */

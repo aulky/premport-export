@@ -61,6 +61,28 @@ function runPortalClient(input: { email?: string; password?: string; accessToken
   return runPython<ClientOk>("portal_client.py", input);
 }
 
+export interface ListAccountEntry {
+  itemId: string;
+  itemName: string | null;
+  username: string | null;
+  password: string | null;
+  url: string | null;
+  isActive: boolean;
+}
+type ListAccountResult = { ok: true; accounts: ListAccountEntry[] } | { ok: false; error: string };
+
+/**
+ * App bertipe "list" (mis. Bloomberg, Consensus): beberapa item membagikan 1
+ * kumpulan akun yang sama, ditampilkan di premiumportal.id/list-account/{slug}
+ * (situs utama, bukan consumer-api -- lihat portal_client.py). HANYA dipanggil
+ * atas aksi eksplisit pengguna, sama seperti cookie/kredensial lain.
+ */
+export function fetchListAccountsLive(accessToken: string, typeSlug: string) {
+  return runPython<{ ok: true; accounts: ListAccountEntry[] }>("portal_client.py", { mode: "list-account", accessToken, type: typeSlug });
+}
+
+export type { ListAccountResult };
+
 export interface LoginResult {
   ok: boolean;
   cookies: EditorCookie[];

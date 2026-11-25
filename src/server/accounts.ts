@@ -191,6 +191,28 @@ export function listPortalApps(accountId: string): PortalAppRow[] {
     .all(accountId) as PortalAppRow[];
 }
 
+export function getPortalApp(accountId: string, appId: string): PortalAppRow | undefined {
+  return db
+    .prepare("SELECT app_id, name, category, target_type, logo, url, note, is_desktop_only FROM portal_apps WHERE account_id=? AND app_id=?")
+    .get(accountId, appId) as PortalAppRow | undefined;
+}
+
+/**
+ * App bertipe "list" membagikan 1 kumpulan akun per app (lihat portal.ts),
+ * jadi item yang baru aktif belum tentu sudah ada di portal_items (katalog
+ * biasa cuma sinkron metadata, bukan status aktif akun). Upsert ringan ini
+ * memastikan baris itemnya ada sebelum kredensialnya disimpan.
+ */
+export function ensurePortalItem(accountId: string, appId: string, item: { itemId: string; itemName: string | null; url: string | null }) {
+  const t = now();
+  db.prepare(
+    `INSERT INTO portal_items(account_id, app_id, item_id, item_name, url, active, last_synced_at)
+     VALUES (@accountId, @appId, @itemId, @itemName, @url, 1, @t)
+     ON CONFLICT(account_id, item_id) DO UPDATE SET
+       item_name=excluded.item_name, url=excluded.url, active=1`,
+  ).run({ accountId, appId, t, itemId: item.itemId, itemName: item.itemName, url: item.url });
+}
+
 export function listPortalItems(accountId: string, appId: string): PortalItemRow[] {
   return db
     .prepare(`SELECT ${ITEM_COLUMNS} FROM portal_items i WHERE i.account_id=? AND i.app_id=? AND i.active=1 ORDER BY i.item_name`)

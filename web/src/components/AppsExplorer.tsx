@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, Copy, Download, ExternalLink, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
-import { api, type AppDto, type CredsDto, type ItemDto } from "@/lib/api";
+import { api, type AppDto, type CredsDto, type ItemDto, type ListAccountDto } from "@/lib/api";
 import { plural } from "@/lib/utils";
 import { AppIcon } from "@/components/AppIcon";
 
@@ -21,9 +21,12 @@ function timeAgo(ts: number | null) {
 const TARGET_LABEL: Record<string, string> = {
   cookies: "Cookie (Get available)",
   autofill: "Account credentials (Get available)",
-  list: "Account list",
+  list: "Account list (Get available)",
   link: "Direct link",
 };
+
+/** "autofill" dan "list" sama-sama menampilkan username/password per item, beda di mana fetch-nya dipicu. */
+const isCredsType = (targetType: string | null) => targetType === "autofill" || targetType === "list";
 
 /** Baris username/password untuk 1 item "autofill" -- disembunyikan sampai diklik. */
 function CredsRow({ creds }: { creds: CredsDto }) {
@@ -67,8 +70,10 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
   const [appSearch, setAppSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [busyItem, setBusyItem] = useState<string | null>(null);
+  const [busyApp, setBusyApp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creds, setCreds] = useState<Record<string, CredsDto>>({});
+  const [hasFetchedList, setHasFetchedList] = useState(false);
 
   useEffect(() => {
     setApps(null);
@@ -84,6 +89,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
     }
     setItems(null);
     setCreds({});
+    setHasFetchedList(false);
     void api.items(accountId, selectedApp.appId).then(setItems);
   }, [accountId, selectedApp]);
 
@@ -139,6 +145,31 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
     }
   }
 
+  /**
+   * App bertipe "list" -- 1 klik mengambil SEMUA akun yang tersedia untuk app
+   * ini sekaligus (bukan per item, beda dari autofill), lalu langsung
+   * ditampilkan di bawah tiap item yang sesuai.
+   */
+  async function handleGetListAccounts() {
+    if (!selectedApp) return;
+    setBusyApp(true);
+    setError(null);
+    try {
+      const res = await api.fetchListAccounts(accountId, selectedApp.appId);
+      setCreds((c) => {
+        const next = { ...c };
+        for (const a of res.accounts as ListAccountDto[]) next[a.itemId] = a;
+        return next;
+      });
+      setHasFetchedList(true);
+      await reloadItems();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyApp(false);
+    }
+  }
+
   const filteredApps = useMemo(() => {
     if (!apps) return null;
     const q = appSearch.trim().toLowerCase();
@@ -175,10 +206,18 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
               <ExternalLink className="size-3.5" />
             </a>
           )}
+          {selectedApp?.targetType === "list" && (
+            <Button size="sm" variant="secondary" className="ml-auto" disabled={busyApp} onClick={() => void handleGetListAccounts()}>
+              <RefreshCw className={`size-3.5 ${busyApp ? "animate-spin" : ""}`} />
+              {hasFetchedList ? "Refresh accounts" : "Get accounts"}
+            </Button>
+          )}
         </CardTitle>
         <CardDescription>
           {selectedApp
-            ? "Click \"Get\" to fetch this item's cookies or credentials (manual, once per click -- some apps have a daily limit set by the provider)."
+            ? selectedApp.targetType === "list"
+              ? "Click \"Get accounts\" to fetch every account currently available for this app (manual, once per click)."
+              : "Click \"Get\" to fetch this item's cookies or credentials (manual, once per click -- some apps have a daily limit set by the provider)."
             : "The catalog syncs automatically on sign-in/refresh. Search to narrow it down."}
         </CardDescription>
       </CardHeader>
@@ -225,7 +264,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                       <span>{plural(app.itemCount, "item")}</span>
                     </div>
                   </div>
-                  <Badge variant={app.targetType === "cookies" || app.targetType === "autofill" ? "success" : "secondary"}>
+                  <Badge variant={app.targetType === "cookies" || isCredsType(app.targetType) ? "success" : "secondary"}>
                     {TARGET_LABEL[app.targetType ?? ""] ?? app.targetType ?? "?"}
                   </Badge>
                 </button>
@@ -242,10 +281,16 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                 dangerouslySetInnerHTML={{ __html: selectedApp.note }}
               />
             )}
-            {selectedApp.targetType !== "cookies" && selectedApp.targetType !== "autofill" && (
+            {selectedApp.targetType !== "cookies" && !isCredsType(selectedApp.targetType) && (
               <p className="rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
                 This app uses the <strong>{TARGET_LABEL[selectedApp.targetType ?? ""] ?? selectedApp.targetType}</strong>,
                 method; automatic cookie export is not supported for it yet.
+              </p>
+            )}
+            {selectedApp.targetType === "list" && (
+              <p className="rounded-lg bg-warning/60 px-3 py-2 text-xs text-warning-foreground">
+                The provider resets this login info weekly (and it may change at any other time too) -- if it stops
+                working, click <strong>Refresh accounts</strong> above.
               </p>
             )}
             <ul className="flex max-h-[24rem] flex-col gap-1.5 overflow-y-auto">
@@ -264,15 +309,15 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{item.itemName ?? item.itemId}</div>
                       <div className="text-xs text-muted-foreground">
-                        {selectedApp.targetType === "autofill"
+                        {isCredsType(selectedApp.targetType)
                           ? item.lastCredsFetchedAt != null
                             ? `fetched ${timeAgo(item.lastCredsFetchedAt)}`
                             : "never fetched"
                           : item.lastCookieCount != null
                             ? `${plural(item.lastCookieCount, "cookie")} · ${timeAgo(item.lastFetchedAt)}`
                             : "never fetched"}
-                        {(selectedApp.targetType === "autofill" ? item.lastCredsError : item.lastError) && (
-                          <span className="text-destructive"> · {selectedApp.targetType === "autofill" ? item.lastCredsError : item.lastError}</span>
+                        {(isCredsType(selectedApp.targetType) ? item.lastCredsError : item.lastError) && (
+                          <span className="text-destructive"> · {isCredsType(selectedApp.targetType) ? item.lastCredsError : item.lastError}</span>
                         )}
                       </div>
                     </div>
@@ -319,9 +364,15 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                           </Button>
                         </>
                       )}
+                      {selectedApp.targetType === "list" && item.hasCreds && !creds[item.itemId] && (
+                        <Button size="sm" variant="outline" disabled={busyItem === item.itemId} onClick={() => void handleViewCreds(item.itemId)}>
+                          <Eye className="size-3.5" />
+                          View
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  {selectedApp.targetType === "autofill" && creds[item.itemId] && <CredsRow creds={creds[item.itemId]!} />}
+                  {isCredsType(selectedApp.targetType) && creds[item.itemId] && <CredsRow creds={creds[item.itemId]!} />}
                 </li>
               ))}
             </ul>

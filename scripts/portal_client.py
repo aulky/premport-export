@@ -18,11 +18,27 @@ Catatan penting hasil riset:
   token valid.
 
 Protokol CLI: baca satu baris JSON dari stdin, tulis satu baris JSON ke stdout.
+
+Mode default (tanpa "mode", dipakai worker.ts/refresh.ts) -- login premiumportal.id:
 Input : {"email": str, "password": str, "accessToken": str|null}
 Output: {"ok": true, "accessToken": str, "refreshToken": str,
          "premiumExpiresAt": str|null, "packageName": str|null,
          "relogged": bool}
       | {"ok": false, "error": str}
+
+Mode "list-account" -- app bertipe "list" (mis. Bloomberg, Consensus): beberapa
+item membagikan 1 KUMPULAN akun yang sama, ditampilkan di
+premiumportal.id/list-account/{slug} (bukan lewat consumer-api/ekstensi,
+makanya pakai Server Action Next.js yang sama seperti login, bukan
+Authorization: Bearer). Ditemukan dengan membongkar JS chunk halaman
+/list-account/{slug} itu sendiri: hook query-nya langsung menyebut nama
+Server Action "getListAccount", dipanggil dengan 1 argumen {type: slug}.
+Input : {"mode":"list-account","accessToken":str,"type":str}
+         (type = potongan path terakhir dari url app, mis. app.url
+         "https://premiumportal.id/list-account/consensus" -> type="consensus")
+Output: {"ok":true,"accounts":[{"itemId":str,"itemName":str|null,"username":str|null,
+                                 "password":str|null,"url":str|null,"isActive":bool}]}
+      | {"ok":false,"error":str}
 """
 import sys
 import json
@@ -85,6 +101,20 @@ def get_packages(session) -> dict:
     return parsed
 
 
+def get_list_account(session, type_slug: str) -> dict:
+    """GET /list-account/{slug} punya tombol "LIST AKUN {SLUG}" yang memanggil
+    Server Action getListAccount({type: slug}) -> {success, data:{data:[...]}}."""
+    path = f"/list-account/{type_slug}"
+    action_hash = find_action(session, path, "getListAccount")
+    if not action_hash:
+        return {"success": False, "errors": "getListAccount action not found (site markup changed?)"}
+    r = call_action(session, path, action_hash, [{"type": type_slug}])
+    parsed = extract_data_line(r.text)
+    if parsed is None:
+        return {"success": False, "errors": f"unexpected response (status {r.status_code})"}
+    return parsed
+
+
 def do_login(session, email, password) -> dict:
     login_hash = find_action(session, "/auth/login", "loginAction")
     if not login_hash:
@@ -101,12 +131,48 @@ def do_login(session, email, password) -> dict:
     return {"ok": True, "accessToken": m.group(1), "refreshToken": m2.group(1) if m2 else None}
 
 
+def run_list_account(req: dict):
+    access_token = req.get("accessToken")
+    type_slug = req.get("type")
+    if not access_token or not type_slug:
+        print(json.dumps({"ok": False, "error": "accessToken and type are required"}))
+        return
+    session = requests.Session(impersonate=UA_IMPERSONATE)
+    session.cookies.set("accessToken", access_token, domain="premiumportal.id")
+    try:
+        res = get_list_account(session, type_slug)
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}))
+        return
+    if not res.get("success"):
+        print(json.dumps({"ok": False, "error": res.get("errors") or "failed to load the account list"}))
+        return
+    rows = ((res.get("data") or {}).get("data")) or []
+    accounts = [
+        {
+            "itemId": row.get("_id"),
+            "itemName": row.get("itemName"),
+            "username": row.get("username"),
+            "password": row.get("password"),
+            "url": row.get("url"),
+            "isActive": bool(row.get("isActive", True)),
+        }
+        for row in rows
+        if row.get("_id")
+    ]
+    print(json.dumps({"ok": True, "accounts": accounts}))
+
+
 def main():
     raw = sys.stdin.read()
     try:
         req = json.loads(raw)
     except json.JSONDecodeError:
         print(json.dumps({"ok": False, "error": "stdin input is not valid JSON"}))
+        return
+
+    if req.get("mode") == "list-account":
+        run_list_account(req)
         return
 
     email = req.get("email")

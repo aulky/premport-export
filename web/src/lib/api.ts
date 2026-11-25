@@ -41,6 +41,13 @@ export interface CredsDto {
   password: string | null;
 }
 
+/** 1 akun untuk app bertipe "list" (mis. Bloomberg, Consensus) -- bisa lebih dari satu per app. */
+export interface ListAccountDto extends CredsDto {
+  itemId: string;
+  itemName: string | null;
+  isActive: boolean;
+}
+
 export interface RunDto {
   id: number;
   account_id: string;
@@ -121,6 +128,11 @@ export const api = {
     req<{ ok: true } & CredsDto>(`/api/accounts/${accountId}/items/${encodeURIComponent(itemId)}/creds/fetch`, { method: "POST", body: "{}" }),
   itemCreds: (accountId: string, itemId: string) =>
     req<CredsDto>(`/api/accounts/${accountId}/items/${encodeURIComponent(itemId)}/creds`),
+  fetchListAccounts: (accountId: string, appId: string) =>
+    req<{ ok: true; accounts: ListAccountDto[] }>(`/api/accounts/${accountId}/apps/${encodeURIComponent(appId)}/list-accounts/fetch`, {
+      method: "POST",
+      body: "{}",
+    }),
   refreshAccount: (accountId: string) =>
     req<{ ok: true; cookieCount: number }>(`/api/accounts/${accountId}/refresh`, { method: "POST", body: "{}" }),
   refreshAll: () => req<{ results: { id: string; ok: boolean; error?: string; cookieCount?: number }[] }>("/api/accounts/refresh-all", { method: "POST", body: "{}" }),
