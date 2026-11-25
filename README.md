@@ -115,9 +115,9 @@ automatic or in bulk. Some apps have daily limits (the extension's own text says
 for Netflix, that you may only pick 10 accounts in 24 hours), and fetching every
 item at once could get the account banned.
 
-Not every app uses `targetType: "cookies"`. There are also `"autofill"` (see
-below), `"list"`, and `"link"` — the latter two are listed without actions for
-now (not yet reverse-engineered).
+Not every app uses `targetType: "cookies"`. There are also `"autofill"` and
+`"list"` (see below), and `"link"` — the latter is listed without an action
+for now (not yet reverse-engineered).
 
 In the dashboard: click the app count on an account row → pick an app → pick an
 item/slot → click **Get** → click the download icon to export `cookies.json`.
@@ -140,6 +140,29 @@ it looks stale, click **Refresh** to fetch the current value from the provider;
 safety rule as cookies: always manual, never automatic or in bulk. Only the
 most recent value is stored (not a history), and it is encrypted the same way
 as cookies.
+
+## Shared accounts (Bloomberg, Consensus, Picsart, etc.)
+
+`targetType: "list"` apps share a small pool of accounts for everyone, shown on
+premiumportal.id itself at `/list-account/{slug}` — a different mechanism from
+the extension entirely: it's a Next.js **Server Action** (`getListAccount`),
+called the same way the sign-in action is (see
+[Why sign-in does not use a browser](#why-sign-in-does-not-use-a-browser-playwright)),
+found by reading the JS chunk for that page. Unlike `autofill`, one call can
+return **more than one account**:
+
+- `getListAccount({ type: slug })` — `slug` is the last path segment of the
+  app's own `url` (e.g. `.../list-account/consensus` → `consensus`) — returns
+  every currently-active account for that app: `{itemId, itemName, username,
+  password, url, isActive}[]`.
+
+In the dashboard: pick an app with the **Account list** badge → click **Get
+accounts**. Every account currently available appears below, each with its own
+masked password (eye icon to reveal, copy buttons), the same way as
+`autofill`. The provider resets these specific logins **weekly** (and
+sometimes at other times too) — if one stops working, click **Refresh
+accounts** again. Same storage, encryption, and manual-only rule as the other
+two: no automatic or bulk fetching.
 
 ## Dashboard accounts and roles
 
