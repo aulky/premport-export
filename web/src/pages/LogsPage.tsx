@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AccessLog } from "@/components/AccessLog";
 import { Pagination, pageCountOf, PAGE_SIZE } from "@/components/Pagination";
 import { LogIn, ShieldCheck, RefreshCcw, Cookie, Search } from "lucide-react";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
@@ -38,6 +40,7 @@ export function LogsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [ip, setIp] = useState(""); // dipakai bersama tab login & pengambilan cookie
 
   async function load() {
     try {
@@ -78,81 +81,99 @@ export function LogsPage() {
     <div className="min-h-full bg-background">
       <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
         <h1 className="font-mono text-lg font-semibold text-brand">Logs</h1>
-        <p className="text-sm text-muted-foreground">Riwayat login, pengecekan sesi, sinkron app, dan pengambilan cookie.</p>
+        <p className="text-sm text-muted-foreground">Riwayat akses dashboard, pengambilan cookie, dan aktivitas sistem.</p>
       </header>
 
       <main className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
-        <Card className="shadow-panel">
-          <CardHeader>
-            <CardTitle className="lg:hidden">Logs</CardTitle>
-            <CardDescription className="lg:hidden">
-              Riwayat login, pengecekan sesi, sinkron app, dan pengambilan cookie.
-            </CardDescription>
-            <div className="flex flex-col gap-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-8" placeholder="Cari akun atau pesan log…" value={search} onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }} />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {FILTERS.map((f) => (
-                  <Button
-                    key={f.key}
-                    size="sm"
-                    variant={filter === f.key ? "default" : "outline"}
-                    onClick={() => {
-                      setFilter(f.key);
+        <h1 className="font-mono text-lg font-semibold text-brand lg:hidden">Logs</h1>
+        <Tabs defaultValue="auth">
+          <TabsList>
+            <TabsTrigger value="auth">
+              <span className="hidden sm:inline">Riwayat</span> Login
+            </TabsTrigger>
+            <TabsTrigger value="cookie">
+              <span className="hidden sm:inline">Pengambilan</span> Cookie
+            </TabsTrigger>
+            <TabsTrigger value="system">
+              <span className="hidden sm:inline">Aktivitas</span> Sistem
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="auth">
+            <AccessLog type="auth" ip={ip} onIpChange={setIp} />
+          </TabsContent>
+          <TabsContent value="cookie">
+            <AccessLog type="cookie" ip={ip} onIpChange={setIp} />
+          </TabsContent>
+          <TabsContent value="system">
+            <Card className="shadow-panel">
+              <CardHeader>
+                <div className="flex flex-col gap-3">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input className="pl-8" placeholder="Cari akun atau pesan log…" value={search} onChange={(e) => {
+                      setSearch(e.target.value);
                       setPage(1);
-                    }}
-                  >
-                    {f.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!filtered ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Tidak ada log yang cocok.</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {visible!.map((r) => {
-                  const meta = KIND_META[r.kind] ?? { label: r.kind, icon: ShieldCheck, tone: "text-muted-foreground" };
-                  const Icon = meta.icon;
-                  return (
-                    <li key={r.id} className="flex items-start gap-3 rounded-xl border border-border/60 px-3 py-2.5">
-                      <Icon className={`mt-0.5 size-4 shrink-0 ${meta.tone}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                          <span className="font-medium text-foreground">{labelFor(r.account_id)}</span>
-                          <Badge variant={r.ok ? "success" : "destructive"}>{meta.label}</Badge>
-                          {!r.ok && <span className="text-xs text-destructive">gagal</span>}
-                        </div>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground" title={r.message ?? ""}>
-                          {r.message}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(r.at)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {filtered && (
-              <div className="mt-3">
-                <Pagination page={currentPage} total={filtered.length} onChange={setPage} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    }} />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FILTERS.map((f) => (
+                      <Button
+                        key={f.key}
+                        size="sm"
+                        variant={filter === f.key ? "default" : "outline"}
+                        onClick={() => {
+                          setFilter(f.key);
+                          setPage(1);
+                        }}
+                      >
+                        {f.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!filtered ? (
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Tidak ada log yang cocok.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1">
+                    {visible!.map((r) => {
+                      const meta = KIND_META[r.kind] ?? { label: r.kind, icon: ShieldCheck, tone: "text-muted-foreground" };
+                      const Icon = meta.icon;
+                      return (
+                        <li key={r.id} className="flex items-start gap-3 rounded-xl border border-border/60 px-3 py-2.5">
+                          <Icon className={`mt-0.5 size-4 shrink-0 ${meta.tone}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                              <span className="font-medium text-foreground">{labelFor(r.account_id)}</span>
+                              <Badge variant={r.ok ? "success" : "destructive"}>{meta.label}</Badge>
+                              {!r.ok && <span className="text-xs text-destructive">gagal</span>}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground" title={r.message ?? ""}>
+                              {r.message}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(r.at)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {filtered && (
+                  <div className="mt-3">
+                    <Pagination page={currentPage} total={filtered.length} onChange={setPage} />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
       </main>

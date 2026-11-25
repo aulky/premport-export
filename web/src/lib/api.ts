@@ -42,6 +42,22 @@ export interface RunDto {
   at: number;
 }
 
+export interface AccessLogDto {
+  id: number;
+  at: number;
+  event: "login" | "logout" | "cookie-get" | "cookie-download" | "session-download";
+  ok: number;
+  ip: string;
+  user_agent: string | null;
+  account_id: string | null;
+  account_label: string | null;
+  app_name: string | null;
+  item_id: string | null;
+  item_name: string | null;
+  cookie_count: number | null;
+  message: string | null;
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   // Fastify menolak (400) request yang punya header Content-Type: application/json
   // tapi body-nya kosong -- jadi header itu hanya disertakan kalau memang ada body.
@@ -73,6 +89,8 @@ export const api = {
     req<{ ok: true; cookieCount: number }>(`/api/accounts/${accountId}/refresh`, { method: "POST", body: "{}" }),
   refreshAll: () => req<{ results: { id: string; ok: boolean; error?: string; cookieCount?: number }[] }>("/api/accounts/refresh-all", { method: "POST", body: "{}" }),
   runs: (limit = 50) => req<RunDto[]>(`/api/runs?limit=${limit}`),
+  accessLogs: (type: "auth" | "cookie", page: number, ip: string) =>
+    req<{ rows: AccessLogDto[]; total: number }>(`/api/access-logs?${new URLSearchParams({ type, page: String(page), ip })}`),
   cookiesUrl: (accountId: string) => `/api/accounts/${accountId}/cookies.json`,
   itemCookiesUrl: (accountId: string, itemId: string) => `/api/accounts/${accountId}/items/${encodeURIComponent(itemId)}/cookies.json`,
 };
