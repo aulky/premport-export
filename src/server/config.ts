@@ -1,9 +1,30 @@
 // Muat .env langsung di kode (bukan andalkan flag CLI), supaya tetap jalan
 // apapun cara prosesnya dieksekusi (pm2 fork/cluster, systemd, dsb).
+import { readFileSync } from "node:fs";
+
+const envFile = new URL("../../.env", import.meta.url);
+const presetKeys = new Set(Object.keys(process.env));
 try {
-  process.loadEnvFile(new URL("../../.env", import.meta.url));
+  process.loadEnvFile(envFile);
+  keepHashInPasswords(readFileSync(envFile, "utf8"));
 } catch {
   // .env tidak ada (mis. env sudah diset lewat pm2/systemd) -> lanjut pakai process.env apa adanya
+}
+
+/**
+ * Parser .env bawaan Node menganggap "#" pada nilai tanpa kutip sebagai awal
+ * komentar, jadi password seperti abc#123 terpotong jadi "abc". Khusus baris
+ * password, nilai tanpa kutip diambil utuh sampai akhir baris (konsekuensinya
+ * baris password tidak boleh diberi komentar di belakangnya).
+ */
+function keepHashInPasswords(text: string) {
+  const line = /^[ \t]*(?:export[ \t]+)?(ADMIN_PASSWORD|ACCOUNT_\d+_PASSWORD)[ \t]*=(.*)$/gm;
+  for (const [, key, rest] of text.matchAll(line)) {
+    const value = rest.trim();
+    // env yang sudah diset dari luar tetap menang; nilai berkutip sudah benar diparse Node
+    if (presetKeys.has(key) || /^["'`]/.test(value)) continue;
+    process.env[key] = value;
+  }
 }
 
 const env = process.env;
