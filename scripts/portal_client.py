@@ -77,7 +77,7 @@ def get_packages(session) -> dict:
     """Panggil getUserPackages di halaman dashboard; mengembalikan dict parsed."""
     pkg_hash = find_action(session, "/dashboard", "getUserPackages")
     if not pkg_hash:
-        return {"success": False, "errors": "getUserPackages action tidak ditemukan (markup portal berubah?)"}
+        return {"success": False, "errors": "getUserPackages action tidak ditemukan (markup situs berubah?)"}
     r = call_action(session, "/dashboard", pkg_hash, [])
     parsed = extract_data_line(r.text)
     if parsed is None:

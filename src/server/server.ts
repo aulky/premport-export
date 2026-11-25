@@ -67,8 +67,6 @@ app.post("/api/logout", async (req, reply) => {
   return { ok: true };
 });
 
-app.get("/api/me", async () => ({ portal: config.portal.name }));
-
 app.get("/api/accounts", async () => {
   const accounts = listAccounts();
   return accounts.map((a, i) => ({
@@ -199,9 +197,9 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   const portalCookies = latestCookies(accountId);
   const accessToken = portalCookies?.find((c) => c.name === "accessToken")?.value;
   if (!accessToken) {
-    logRun(accountId, "item-fetch", false, `${itemLabel}: belum ada sesi premiumportal.id yang valid`, Date.now() - t0);
+    logRun(accountId, "item-fetch", false, `${itemLabel}: belum ada sesi login yang valid`, Date.now() - t0);
     reply.code(409);
-    return { error: "Belum ada sesi premiumportal.id yang valid untuk akun ini. Tunggu worker login dulu." };
+    return { error: "Belum ada sesi login yang valid untuk akun ini. Tunggu worker login dulu." };
   }
   const res = await fetchItemCookiesLive(accessToken, itemId);
   if (!res.ok) {

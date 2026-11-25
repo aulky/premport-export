@@ -74,10 +74,6 @@ export const config = {
   sessionTtlSec: num(env.SESSION_TTL_SEC, 60 * 60 * 12),
   secureCookie: bool("COOKIE_SECURE", false),
 
-  portal: {
-    name: str("PORTAL_NAME", "Premium Portal"),
-  },
-
   worker: {
     tickSec: num(env.WORKER_TICK_SEC, 15),
     checkIntervalSec: num(env.CHECK_INTERVAL_SEC, 300),
