@@ -1,51 +1,48 @@
-# Panduan Hosting Cookie Scraping Tools (untuk AI agent / operator)
+# Cookie Scraping Tools Hosting Guide (for AI agents / operators)
 
-Dokumen ini adalah **runbook lengkap, langkah-demi-langkah**, ditulis supaya AI
-coding agent (Claude Code, dsb.) atau operator manusia bisa men-deploy Cookie
-Scraping Tools dari nol di VPS Linux sampai bisa diakses publik lewat HTTPS, **tanpa
-perlu bertanya balik** kecuali ada keputusan yang memang hanya bisa diambil
-manusia (lihat bagian "Keputusan yang butuh manusia" di bawah).
+This is a **complete, step-by-step runbook**, written so that an AI coding agent
+(Claude Code and similar) or a human operator can deploy Cookie Scraping Tools
+from scratch on a Linux VPS until it is publicly reachable over HTTPS, **without
+asking questions**, except for decisions only a human can make (see "Decisions
+that need a human" below).
 
-Ikuti berurutan. Tiap langkah punya perintah persis + cara verifikasi
-("Cek:") sebelum lanjut ke langkah berikutnya. Jangan skip langkah verifikasi
-— kalau gagal, perbaiki dulu sebelum lanjut.
+Follow the steps in order. Each step has the exact commands and a way to verify
+it ("Check:") before moving on. Don't skip a check; if it fails, fix it first.
 
-## 0. Asumsi & target
+## 0. Assumptions and target
 
-- Target: **Ubuntu 22.04/24.04 LTS** atau **Debian 12** di VPS (DigitalOcean,
-  Vultr, dll). Perintah di bawah pakai `apt`; sesuaikan kalau distro lain.
-- Akses: SSH sebagai user dengan hak `sudo` (bukan harus root langsung).
-- Domain (opsional tapi disarankan untuk HTTPS): `A record` domain/subdomain
-  sudah diarahkan ke IP VPS sebelum mulai bagian Nginx/TLS.
-- Repo project ini sudah di-push ke Git remote yang bisa diakses dari VPS
-  (GitHub/GitLab/dst.), ATAU disalin manual via `scp`/`rsync`.
+- Target: **Ubuntu 22.04/24.04 LTS** or **Debian 12** on a VPS (DigitalOcean,
+  Vultr, etc.). Commands use `apt`; adapt them for other distributions.
+- Access: SSH as a user with `sudo` rights (not necessarily root).
+- Domain (optional but recommended for HTTPS): the domain/subdomain `A record`
+  already points to the VPS IP before you start the Nginx/TLS section.
+- The repository is on a Git remote the VPS can reach (GitHub, GitLab, etc.), OR
+  you copy it manually with `scp`/`rsync`.
 
-## 1. Keputusan yang butuh manusia (jangan diasumsikan oleh AI)
+## 1. Decisions that need a human (an AI must not assume these)
 
-Berhenti dan tanya operator untuk hal-hal berikut sebelum lanjut — ini bukan
-keputusan teknis yang aman ditebak:
+Stop and ask the operator about the following. They are not safe to guess:
 
-1. **Domain/subdomain** yang dipakai (untuk Nginx `server_name` & sertifikat TLS).
-2. **Kredensial akun** (`ACCOUNT_N_EMAIL`/`PASSWORD`) — ini
-   kredensial asli milik operator, jangan pernah di-generate atau ditebak.
-3. **`ADMIN_PASSWORD`** dashboard — boleh digenerate AI, tapi **sampaikan
-   nilainya ke operator** (jangan hanya disimpan di server tanpa dicatat).
-4. Apakah firewall provider (security group cloud) sudah mengizinkan port
-   80/443 masuk — beberapa provider block by default di level network, bukan
-   cuma `ufw`.
+1. The **domain/subdomain** to use (for Nginx `server_name` and the TLS certificate).
+2. The **account credentials** (`ACCOUNT_N_EMAIL`/`PASSWORD`). These are the
+   operator's real credentials; never generate or guess them.
+3. The dashboard **`ADMIN_PASSWORD`**. An AI may generate it, but must **give the
+   value to the operator** (don't leave it only on the server).
+4. Whether the provider's firewall (cloud security group) allows inbound ports
+   80/443. Some providers block them at network level, not just in `ufw`.
 
-Semua langkah teknis lain di bawah ini aman dikerjakan otomatis.
+Every other technical step below is safe to run automatically.
 
-## 2. Provisioning server dasar
+## 2. Basic server provisioning
 
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl git build-essential ca-certificates gnupg
 ```
 
-**Cek:** `lsb_release -a` menunjukkan versi distro yang didukung.
+**Check:** `lsb_release -a` shows a supported distribution version.
 
-### 2.1 Firewall dasar (ufw)
+### 2.1 Basic firewall (ufw)
 
 ```bash
 sudo ufw allow OpenSSH
@@ -55,60 +52,58 @@ sudo ufw --force enable
 sudo ufw status
 ```
 
-**Cek:** output `ufw status` menunjukkan `22`, `80`, `443` berstatus `ALLOW`.
-**Jangan** buka port `3000` ke publik — nanti diakses lewat Nginx reverse
-proxy di 80/443 saja (lihat bagian 7).
+**Check:** `ufw status` shows `22`, `80`, and `443` as `ALLOW`. **Don't** open
+port `3000` to the public; it is reached through the Nginx reverse proxy on
+80/443 only (see section 10).
 
-## 3. Install Node.js 20+
+## 3. Install Node.js 22+
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
-**Cek:** `node -v` → harus `v20.x` atau lebih baru. `npm -v` juga harus ada.
+**Check:** `node -v` shows `v22.x` or newer, and `npm -v` works.
 
-## 4. Install Python 3 + curl_cffi
+## 4. Install Python 3 and curl_cffi
 
-Worker login ke `premiumportal.id` **wajib** lewat `curl_cffi` (impersonasi
-TLS Chrome), bukan browser/Playwright — portal ini di balik Cloudflare
-bot-management yang memblokir request dari Chromium otomatisasi (headless
-maupun headed). Detail riset ada di `README.md` bagian "Kenapa login bukan
-lewat browser".
+The worker **must** sign in to `premiumportal.id` through `curl_cffi` (Chrome TLS
+impersonation), not a browser or Playwright: the site is behind Cloudflare bot
+management, which blocks requests from automated Chromium (headless or headed).
+See "Why sign-in does not use a browser" in `README.md`.
 
 ```bash
 sudo apt install -y python3 python3-pip python3-venv
 ```
 
-**Cek:** `python3 --version` → 3.10+.
+**Check:** `python3 --version` shows 3.10 or newer.
 
-`curl_cffi` akan diinstal lewat `requirements.txt` project di langkah 6, bukan
-global di sini.
+`curl_cffi` is installed from the project's `requirements.txt` in step 6, not
+globally here.
 
-## 5. Buat user khusus & ambil kode (opsional tapi disarankan)
+## 5. Create a dedicated user and get the code (optional but recommended)
 
-Jangan jalankan aplikasi sebagai `root`. Kalau belum ada user non-root dengan
-akses project:
+Don't run the application as `root`. If there is no non-root user for the project
+yet:
 
 ```bash
 sudo adduser --disabled-password --gecos "" cookievault
 sudo su - cookievault
 ```
 
-Dari sini (sebagai user `cookievault`), clone repo:
+From here (as `cookievault`), clone the repository:
 
 ```bash
-git clone <URL_REPO_GIT_ANDA> ~/cookie-vault
+git clone <YOUR_GIT_REPO_URL> ~/cookie-vault
 cd ~/cookie-vault
 ```
 
-Kalau tidak pakai Git (copy manual), pastikan seluruh isi folder project
-(kecuali `node_modules`, `dist`, `web/dist`, `.env`, `data/`) disalin ke
-`~/cookie-vault` di server, lalu `cd` ke sana.
+Without Git, copy the whole project folder (except `node_modules`, `dist`,
+`web/dist`, `.env`, `data/`) to `~/cookie-vault` on the server, then `cd` into it.
 
-**Cek:** `ls` menunjukkan `package.json`, `src/`, `web/`, `scripts/`.
+**Check:** `ls` shows `package.json`, `src/`, `web/`, `scripts/`.
 
-## 6. Install dependencies project
+## 6. Install project dependencies
 
 ```bash
 npm install
@@ -117,36 +112,37 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Cek:** `python3 -c "import curl_cffi; print(curl_cffi.__version__)"` tidak error.
+**Check:** `python3 -c "import curl_cffi; print(curl_cffi.__version__)"` runs
+without errors.
 
-> Catatan: kalau pakai virtualenv (`.venv`) seperti di atas, set
-> `PYTHON_BIN=/home/cookievault/cookie-vault/.venv/bin/python3` di `.env`
-> (langkah 7) supaya worker Node memanggil Python yang benar (bukan
-> `python3` sistem yang mungkin tidak punya `curl_cffi`).
+> With a virtualenv (`.venv`) as above, set
+> `PYTHON_BIN=/home/cookievault/cookie-vault/.venv/bin/python3` in `.env` (step 7)
+> so the Node processes call the right Python, not the system `python3`, which may
+> not have `curl_cffi`.
 
-## 7. Konfigurasi `.env`
+## 7. Configure `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-Generate dua nilai rahasia:
+Generate two secrets:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # -> SECRET_KEY
-node -e "console.log(require('crypto').randomBytes(12).toString('base64url'))"  # -> ADMIN_PASSWORD (atau minta operator)
+node -e "console.log(require('crypto').randomBytes(12).toString('base64url'))"  # -> ADMIN_PASSWORD (or ask the operator)
 ```
 
-Edit `.env` (`nano .env` atau lewat tool edit file) dan isi minimal:
+Edit `.env` (`nano .env` or a file editing tool) and set at least:
 
 ```ini
 PORT=3000
-HOST=127.0.0.1          # bind ke localhost saja; publik lewat Nginx (bagian 9)
+HOST=127.0.0.1          # bind to localhost only; public access goes through Nginx (section 10)
 DB_PATH=./data/cookies.db
-SECRET_KEY=<hasil generate di atas>
-ADMIN_PASSWORD=<hasil generate / dari operator>
+SECRET_KEY=<generated above>
+ADMIN_PASSWORD=<generated / from the operator>
 SESSION_TTL_SEC=43200
-COOKIE_SECURE=true      # WAJIB true kalau diakses lewat HTTPS (lihat bagian 9)
+COOKIE_SECURE=true      # MUST be true when served over HTTPS (section 10)
 WORKER_TICK_SEC=15
 CHECK_INTERVAL_SEC=300
 REFRESH_BEFORE_SEC=600
@@ -154,23 +150,26 @@ KEEP_SNAPSHOTS=5
 MAX_FAIL_BEFORE_BACKOFF=3
 PYTHON_BIN=/home/cookievault/cookie-vault/.venv/bin/python3
 
-ACCOUNT_1_LABEL=Akun 1
-ACCOUNT_1_EMAIL=<dari operator>
-ACCOUNT_1_PASSWORD=<dari operator>
-ACCOUNT_2_LABEL=Akun 2
-ACCOUNT_2_EMAIL=<dari operator, opsional>
-ACCOUNT_2_PASSWORD=<dari operator, opsional>
+ACCOUNT_1_LABEL=Account 1
+ACCOUNT_1_EMAIL=<from the operator>
+ACCOUNT_1_PASSWORD=<from the operator>
+ACCOUNT_2_LABEL=Account 2
+ACCOUNT_2_EMAIL=<from the operator, optional>
+ACCOUNT_2_PASSWORD=<from the operator, optional>
 ```
 
-**PENTING keamanan:** `HOST=127.0.0.1` (bukan `0.0.0.0`) supaya port 3000
-hanya bisa diakses dari server itu sendiri — akses publik lewat Nginx di
-bagian 9. Kalau tidak pakai Nginx/TLS sama sekali (tidak disarankan), minimal
-`COOKIE_SECURE=false` dan buka port 3000 lewat ufw secara eksplisit.
+Passwords may contain `#`, `!`, `$` and similar characters. Don't put a comment
+after a password on the same line.
 
-**Cek:** `cat .env` tidak ada baris kosong di nilai wajib (`SECRET_KEY`,
-`ADMIN_PASSWORD`, minimal satu `ACCOUNT_1_EMAIL`/`PASSWORD`).
+**Security:** use `HOST=127.0.0.1` (not `0.0.0.0`) so port 3000 is only reachable
+from the server itself; public access goes through Nginx (section 10). Without
+Nginx/TLS (not recommended), at least set `COOKIE_SECURE=false` and open port 3000
+in `ufw` explicitly.
 
-## 8. Build & tes jalan manual (sebelum PM2)
+**Check:** `cat .env` shows no empty required values (`SECRET_KEY`,
+`ADMIN_PASSWORD`, and at least one `ACCOUNT_1_EMAIL`/`PASSWORD`).
+
+## 8. Build and test manually (before PM2)
 
 ```bash
 npm run build
@@ -180,21 +179,21 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/
 kill %1
 ```
 
-**Cek:** output curl `200`. Kalau bukan 200, baca log yang tercetak sebelum
-lanjut — jangan lanjut ke PM2 dengan server yang belum terbukti jalan.
+**Check:** curl prints `200`. If not, read the printed log before continuing;
+don't move on to PM2 with a server that hasn't been shown to work.
 
-Tes worker juga (akan jalan terus sampai di-Ctrl+C, biarkan ~20 detik lalu stop):
+Test the worker too (it runs until stopped; let it run about 20 seconds):
 
 ```bash
 timeout 20 node dist/server/worker.js
 ```
 
-**Cek:** muncul baris log `[worker] start. akun aktif: N, tick=15s` dan
-(kalau kredensial benar) `[worker] OK <label>: N cookies disimpan`. Kalau
-muncul `GAGAL ... login gagal`, cek kembali `ACCOUNT_N_EMAIL/PASSWORD` di
-`.env` — ini paling sering akar masalahnya, bukan bug kode.
+**Check:** you see `[worker] start. active accounts: N, tick=15s` and (with
+correct credentials) `[worker] OK <label>: N cookies saved`. If you see
+`FAILED ... `, check `ACCOUNT_N_EMAIL/PASSWORD` in `.env` first; that is the most
+common cause, not a code bug.
 
-## 9. Jalankan permanen dengan PM2
+## 9. Run permanently with PM2
 
 ```bash
 sudo npm install -g pm2
@@ -202,55 +201,53 @@ pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-Supaya PM2 (dan karenanya worker + web) **otomatis menyala lagi setelah
-reboot server** — ini menjawab kebutuhan "worker selalu nyala":
+So that PM2 (and therefore the worker and web app) **starts again after a server
+reboot**:
 
 ```bash
 pm2 startup systemd -u cookievault --hp /home/cookievault
 ```
 
-Perintah di atas akan mencetak **satu baris perintah `sudo env ...`** —
-copy-paste dan jalankan baris itu persis (beda tiap server, tidak bisa
-ditebak/di-hardcode). Setelah itu:
+This prints **one `sudo env ...` command**. Copy and run exactly that line (it
+differs per server and cannot be guessed). Then:
 
 ```bash
 pm2 save
 ```
 
-**Cek, wajib semua lolos sebelum lanjut:**
+**Check — all of these must pass before continuing:**
 
 ```bash
 pm2 status
-# cookie-vault-web    harus "online"
-# cookie-vault-worker harus "online"
+# cookie-vault-web    must be "online"
+# cookie-vault-worker must be "online"
 
 pm2 logs cookie-vault-worker --lines 30 --nostream
-# harus ada "[worker] start. akun aktif: N" tanpa error login terus-menerus
+# shows "[worker] start. active accounts: N" without repeated sign-in errors
 
 sudo reboot
-# tunggu ~1 menit, SSH lagi, lalu:
+# wait about 1 minute, SSH in again, then:
 pm2 status
-# keduanya harus "online" lagi TANPA perlu `pm2 start` manual
+# both must be "online" again WITHOUT running `pm2 start` manually
 ```
 
-Kalau setelah reboot `pm2 status` kosong/kedua app tidak ada: `pm2 startup`
-tidak berhasil ter-install sebagai service. Jalankan ulang
-`pm2 startup systemd ...` dan pastikan baris `sudo env ...` yang dicetak
-benar-benar dijalankan (bukan cuma dibaca).
+If `pm2 status` is empty after the reboot, `pm2 startup` was not installed as a
+service. Run `pm2 startup systemd ...` again and make sure the printed `sudo env
+...` line is actually executed.
 
-### 9.1 Auto-restart kalau crash (sudah default, verifikasi saja)
+### 9.1 Auto-restart after a crash (default, just verify)
 
-`ecosystem.config.cjs` sudah punya `autorestart: true` dan `max_restarts`
-untuk kedua proses — PM2 otomatis me-restart kalau proses crash. Verifikasi:
+`ecosystem.config.cjs` already sets `autorestart: true` and `max_restarts` for
+both processes, so PM2 restarts a crashed process. Verify:
 
 ```bash
-pm2 id cookie-vault-worker          # catat PID via: pm2 show cookie-vault-worker
-kill -9 <PID_WORKER>
+pm2 show cookie-vault-worker        # note the PID
+kill -9 <WORKER_PID>
 sleep 3
-pm2 status                          # cookie-vault-worker harus balik "online" sendiri
+pm2 status                          # cookie-vault-worker should be "online" again
 ```
 
-### 9.2 Log rotation (supaya disk tidak penuh)
+### 9.2 Log rotation (so the disk doesn't fill up)
 
 ```bash
 pm2 install pm2-logrotate
@@ -258,18 +255,18 @@ pm2 set pm2-logrotate:max_size 20M
 pm2 set pm2-logrotate:retain 14
 ```
 
-## 10. Reverse proxy Nginx + HTTPS
+## 10. Nginx reverse proxy and HTTPS
 
 ```bash
 sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
-Buat file `/etc/nginx/sites-available/cookie-vault`:
+Create `/etc/nginx/sites-available/cookie-vault`:
 
 ```nginx
 server {
     listen 80;
-    server_name DOMAIN_ANDA.COM;
+    server_name YOUR_DOMAIN.COM;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -284,7 +281,8 @@ server {
 }
 ```
 
-Ganti `DOMAIN_ANDA.COM` dengan domain dari operator (bagian 1).
+Replace `YOUR_DOMAIN.COM` with the operator's domain (section 1). The
+`X-Forwarded-For` header is what lets the access history record real visitor IPs.
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/cookie-vault /etc/nginx/sites-enabled/
@@ -292,118 +290,115 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-**Cek:** `sudo nginx -t` → `syntax is ok` dan `test is successful`. Lalu
-`curl -s -o /dev/null -w "%{http_code}\n" http://DOMAIN_ANDA.COM/` → `200`.
+**Check:** `sudo nginx -t` says `syntax is ok` and `test is successful`, then
+`curl -s -o /dev/null -w "%{http_code}\n" http://YOUR_DOMAIN.COM/` prints `200`.
 
-Pasang TLS (certbot akan otomatis edit config Nginx untuk redirect ke HTTPS):
+Add TLS (certbot edits the Nginx config to redirect to HTTPS):
 
 ```bash
-sudo certbot --nginx -d DOMAIN_ANDA.COM
+sudo certbot --nginx -d YOUR_DOMAIN.COM
 ```
 
-Ikuti prompt (email untuk notifikasi expiry, setuju ToS). Certbot otomatis
-pasang cron/systemd timer untuk renew — verifikasi:
+Follow the prompts (expiry notification email, terms of service). Certbot sets up
+a renewal timer; verify it:
 
 ```bash
 sudo certbot renew --dry-run
 ```
 
-**Cek:** `https://DOMAIN_ANDA.COM/` terbuka tanpa warning sertifikat, dan
-halaman login Cookie Scraping Tools muncul (bukan 502/504 — kalau 502, cek `pm2 logs
-cookie-vault-web` dan pastikan `HOST=127.0.0.1` & `PORT=3000` di `.env` cocok
-dengan `proxy_pass` di Nginx).
+**Check:** `https://YOUR_DOMAIN.COM/` opens without certificate warnings and shows
+the Cookie Scraping Tools sign-in page. For a 502, check `pm2 logs
+cookie-vault-web` and that `HOST=127.0.0.1` and `PORT=3000` in `.env` match
+`proxy_pass`.
 
-Setelah HTTPS aktif, pastikan `.env` punya `COOKIE_SECURE=true` lalu:
+Once HTTPS works, make sure `.env` has `COOKIE_SECURE=true`, then:
 
 ```bash
 pm2 restart cookie-vault-web
 ```
 
-## 11. Verifikasi akhir end-to-end
+## 11. Final end-to-end check
 
-1. Buka `https://DOMAIN_ANDA.COM/` → halaman login muncul.
-2. Login pakai `ADMIN_PASSWORD` dari `.env` → masuk ke Dashboard.
-3. Tunggu sampai kolom **Status** akun jadi `Aktif` (worker butuh beberapa
-   tick pertama untuk login — lihat `pm2 logs cookie-vault-worker`).
-4. Klik akun → buka 1 app (`targetType: cookies`) → klik **Get** pada 1 item
-   → pastikan muncul jumlah cookie & tombol download aktif.
-5. Download cookie, buka halaman **Tutorial** di sidebar untuk langkah
-   import ke ekstensi Cookie-Editor.
-6. Cek halaman **Logs** → harus ada entri `login`, `check`, `apps-sync`.
+1. Open `https://YOUR_DOMAIN.COM/` — the sign-in page appears.
+2. Sign in with the `ADMIN_PASSWORD` from `.env` — you reach the Dashboard.
+3. Wait until the account **Status** becomes `Active` (the worker needs a few
+   ticks to sign in — see `pm2 logs cookie-vault-worker`).
+4. Click the account → open an app (`targetType: cookies`) → click **Get** on one
+   item → a cookie count appears and the download button is enabled.
+5. Download the cookies and open the **Tutorial** page for how to import them with
+   the Cookie-Editor extension.
+6. Check the **Logs** page: it has sign-in entries and `System` entries for
+   sign-in, session check, and app sync.
 
-Kalau semua lolos, deployment selesai.
+If everything passes, the deployment is complete.
 
-## 12. Update / redeploy (setelah ada perubahan kode)
+## 12. Update / redeploy (after code changes)
 
 ```bash
 cd ~/cookie-vault
 git pull
-npm install                 # kalau ada dependency baru
-source .venv/bin/activate && pip install -r requirements.txt   # kalau requirements.txt berubah
+npm install                 # in case there are new dependencies
+source .venv/bin/activate && pip install -r requirements.txt   # if requirements.txt changed
 npm run build
 pm2 restart cookie-vault-web cookie-vault-worker
 ```
 
-**Cek:** `pm2 status` kedua proses `online`, lalu buka dashboard di browser
-dan pastikan tidak ada halaman putih kosong (lihat Troubleshooting #3 kalau
-terjadi).
+**Check:** both processes are `online` in `pm2 status`, and the dashboard opens
+without a blank page (see Troubleshooting #3 if it does).
 
-## 13. Menambah/mengganti akun
+## 13. Adding or changing accounts
 
-Edit `.env`, tambah/ubah baris `ACCOUNT_N_LABEL/EMAIL/PASSWORD`, lalu:
+Edit `.env`, add or change `ACCOUNT_N_LABEL/EMAIL/PASSWORD`, then:
 
 ```bash
 pm2 restart cookie-vault-worker cookie-vault-web
 ```
 
-Akun pertama (`ACCOUNT_1_...`) otomatis jadi **Primary** di dashboard — tetap
-dicoba login terus-menerus walau akun lain gagal.
+The first account (`ACCOUNT_1_...`) is marked **Primary** in the dashboard; it
+keeps being retried even when other accounts fail.
 
 ## 14. Troubleshooting
 
-**1. Worker terus-menerus `login gagal`**
-Hampir selalu kredensial salah/kadaluarsa di `.env`, atau IP VPS
-diblokir/rate-limited oleh Cloudflare (coba dari IP lain untuk pastikan).
-Bukan bug kode kalau pesan errornya jelas "email/password salah".
+**1. The worker keeps reporting a failed sign-in**
+Almost always wrong or expired credentials in `.env`, or the VPS IP is blocked or
+rate-limited by Cloudflare (try from another IP to confirm). It is not a code bug
+if the error clearly says the email or password is wrong.
 
-**2. `pm2 logs cookie-vault-worker` menunjukkan "Gagal menjalankan Python"**
-`PYTHON_BIN` di `.env` salah path, atau `curl_cffi` belum terinstal di
-venv itu. Jalankan ulang langkah 6, lalu `pm2 restart cookie-vault-worker`.
+**2. `pm2 logs cookie-vault-worker` shows "Failed to run Python"**
+`PYTHON_BIN` in `.env` has the wrong path, or `curl_cffi` is not installed in that
+virtualenv. Repeat step 6, then `pm2 restart cookie-vault-worker`.
 
-**3. Dashboard blank putih total setelah redeploy**
-Pernah terjadi: `@fastify/static` kalau didaftarkan dengan opsi
-`wildcard:false` hanya mendaftarkan rute file statis **sekali saat startup**
-— build baru dengan nama file ter-hash baru jadi tidak kebaca sampai proses
-di-restart. Project ini sudah diperbaiki (`wildcard` dibiarkan default
-`true`, melayani per-request), tapi kalau regresi: pastikan
-`src/server/server.ts` TIDAK mengandung `wildcard: false`, lalu
-`pm2 restart cookie-vault-web`.
+**3. The dashboard is completely blank after a redeploy**
+This happened once: when `@fastify/static` is registered with `wildcard:false`, it
+registers static routes **only at startup**, so a new build with new hashed file
+names is not served until the process restarts. It is fixed (`wildcard` is left at
+its default `true`), but if it regresses, make sure `src/server/server.ts` does
+NOT contain `wildcard: false`, then `pm2 restart cookie-vault-web`.
 
-**4. 502 Bad Gateway dari Nginx**
-`cookie-vault-web` tidak jalan di port yang diharapkan Nginx. Cek
-`pm2 status` (`online`?), `pm2 logs cookie-vault-web`, dan cocokkan
-`PORT`/`HOST` di `.env` dengan `proxy_pass` di config Nginx.
+**4. 502 Bad Gateway from Nginx**
+`cookie-vault-web` is not listening where Nginx expects it. Check `pm2 status`,
+`pm2 logs cookie-vault-web`, and compare `PORT`/`HOST` in `.env` with
+`proxy_pass` in the Nginx config.
 
-**5. Ada beberapa proses worker duplikat (dari testing manual sebelumnya)**
-Jangan jalankan `node dist/server/worker.js` manual di tengah PM2 sudah
-mengelolanya — bisa balapan login ke akun yang sama dan memicu
-403/kicked-session di portal. Selalu kelola lewat `pm2 start/restart/stop`,
-jangan campur dengan proses manual yang dibiarkan hidup di background.
+**5. Duplicate worker processes (left over from manual testing)**
+Don't run `node dist/server/worker.js` manually while PM2 manages it: the two can
+race to sign in to the same account and trigger 403s or kicked sessions. Always
+use `pm2 start/restart/stop`.
 
-**6. Request `POST` ke API balas `400 Bad Request` padahal body kosong**
-Fastify menolak header `Content-Type: application/json` tanpa body. Semua
-endpoint POST tanpa payload di frontend (`refresh`, `fetch` cookie, dst.)
-sudah mengirim `body: "{}"` secara eksplisit — kalau menambah endpoint baru
-yang dipanggil tanpa body dari `web/src/lib/api.ts`, ikuti pola yang sama.
+**6. A `POST` API request returns `400 Bad Request` with an empty body**
+Fastify rejects `Content-Type: application/json` without a body. Frontend POSTs
+without a payload send `body: "{}"` explicitly; follow the same pattern for new
+endpoints in `web/src/lib/api.ts`.
 
-## 15. Checklist keamanan sebelum go-live
+## 15. Security checklist before going live
 
-- [ ] `.env` tidak pernah di-commit ke Git (`.gitignore` sudah mengecualikannya).
-- [ ] `HOST=127.0.0.1` di `.env` (port 3000 tidak terbuka ke publik langsung).
-- [ ] `COOKIE_SECURE=true` setelah HTTPS aktif.
-- [ ] `ADMIN_PASSWORD` kuat (bukan default/tebakan) dan sudah disampaikan ke operator.
-- [ ] `ufw status` hanya mengizinkan 22/80/443.
-- [ ] `pm2 startup` sudah diverifikasi lewat `sudo reboot` (bagian 9).
-- [ ] Backup `data/cookies.db` terjadwal (opsional tapi disarankan — file ini
-      berisi semua cookie terenkripsi; backup teratur, mis. `cron` + `rsync`
-      ke storage lain, sebelum maintenance besar).
+- [ ] `.env` is never committed to Git (`.gitignore` already excludes it).
+- [ ] `HOST=127.0.0.1` in `.env` (port 3000 is not directly public).
+- [ ] `COOKIE_SECURE=true` once HTTPS works.
+- [ ] `ADMIN_PASSWORD` is strong (not a default or guessable value) and the
+      operator has it.
+- [ ] `ufw status` only allows 22/80/443.
+- [ ] `pm2 startup` was verified with `sudo reboot` (section 9).
+- [ ] `data/cookies.db` is backed up on a schedule (optional but recommended: it
+      holds all the encrypted cookies; use `cron` + `rsync` to another storage,
+      especially before major maintenance).

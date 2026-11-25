@@ -1,187 +1,178 @@
 # Cookie Scraping Tools
 
-Dashboard + worker untuk login otomatis ke akun, menyimpan cookie
-sesi ke SQLite, dan mengekspor cookie dalam format JSON ekstensi
-**Cookie-Editor** — siap di-import langsung ke browser.
+A dashboard and worker that sign in to your accounts automatically, store the
+session cookies in SQLite, and export them as JSON in the **Cookie-Editor**
+extension format, ready to import into a browser.
 
-## Arsitektur
+## Architecture
 
-- **`src/server/worker.ts`** — proses terpisah. Tiap `WORKER_TICK_SEC`, cek
-  akun mana yang perlu diverifikasi/diperbarui:
-  1. Kalau belum pernah login, atau sesi mendekati expired (`REFRESH_BEFORE_SEC`),
-     langsung login ulang via Playwright (browser nyata → tahan terhadap form
-     Next.js server actions / JS rendering).
-  2. Kalau belum waktunya refresh tapi sudah lewat `CHECK_INTERVAL_SEC`, cek
-     sesi masih hidup dulu (request pakai cookie yang tersimpan) sebelum
-     memutuskan login ulang. Ini lebih akurat daripada hanya membaca
-     `expirationDate` cookie, karena sesi bisa mati di server sebelum
-     cookie-nya sendiri kedaluwarsa.
-  3. Snapshot cookie baru + daftar app (scrape dashboard) disimpan ke SQLite,
-     dengan kolom cookie **terenkripsi AES-256-GCM** (key dari `SECRET_KEY`).
-- **`src/server/server.ts`** — Fastify: dashboard React + API (login admin,
-  daftar akun & status, daftar app per akun, export `cookies.json`, log run).
-- **SQLite** (`better-sqlite3`, WAL mode) — satu file `data/cookies.db`
-  dipakai bersama oleh `web` dan `worker` (aman karena WAL mendukung
-  banyak reader + satu writer sekaligus).
-- **Frontend**: React + Vite + Tailwind v4, tema **Dens-UI** dengan palet
-  kustom Mars Green `#008C8D` + Periwinkle `#53589A` + Powder `#FFF2DF`
-  (lihat `web/src/styles/globals.css`).
+- **`src/server/worker.ts`** — a separate process. Every `WORKER_TICK_SEC` it
+  checks which accounts need to be verified or renewed:
+  1. If an account has never signed in, or its session is close to expiring
+     (`REFRESH_BEFORE_SEC`), it signs in again (see
+     [Why sign-in does not use a browser](#why-sign-in-does-not-use-a-browser-playwright)).
+  2. Otherwise, once `CHECK_INTERVAL_SEC` has passed, it first checks that the
+     session is still alive (using the stored cookies) before deciding to sign in
+     again. This is more accurate than reading the cookie's `expirationDate`,
+     because a session can die on the server before the cookie expires.
+  3. The new cookie snapshot and the app list are stored in SQLite, with the
+     cookie column **encrypted with AES-256-GCM** (key derived from `SECRET_KEY`).
+- **`src/server/server.ts`** — Fastify: the React dashboard and its API (sign-in,
+  accounts and status, apps per account, `cookies.json` export, logs).
+- **SQLite** (`better-sqlite3`, WAL mode) — a single `data/cookies.db` file shared
+  by `web` and `worker` (safe because WAL allows many readers and one writer).
+- **Frontend**: React + Vite + Tailwind v4, **Dens-UI** theme with a custom palette
+  of Mars Green `#008C8D`, Periwinkle `#53589A`, and Powder `#FFF2DF`
+  (see `web/src/styles/globals.css`).
 
-Daftar **app dinamis**: worker meng-upsert app yang ditemukan di dashboard
-portal tiap kali login; app yang tidak lagi muncul ditandai non-aktif
-(histori tetap ada di SQLite), bukan dihapus.
+The **app list is dynamic**: the worker upserts the apps it finds on every
+sign-in. Apps that no longer appear are marked inactive, not deleted, so their
+history stays in SQLite.
 
 ## Setup (Linux)
 
 ```bash
-# 1. Node 20+ dan Python 3 + curl_cffi
+# 1. Node 22+ and Python 3 + curl_cffi
 npm install
-pip install -r requirements.txt   # atau: npm run setup:python
+pip install -r requirements.txt   # or: npm run setup:python
 
-# 2. Konfigurasi
+# 2. Configuration
 cp .env.example .env
 nano .env
 #   - SECRET_KEY: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-#   - ADMIN_PASSWORD: password untuk masuk dashboard (bukan password portal)
-#   - ACCOUNT_1_EMAIL / ACCOUNT_1_PASSWORD, ACCOUNT_2_..., dst — akun yang dipakai
+#   - ADMIN_PASSWORD: password for the dashboard (not the source account password)
+#   - ACCOUNT_1_EMAIL / ACCOUNT_1_PASSWORD, ACCOUNT_2_..., etc. — the accounts to use
 
 # 3. Build
-npm run build     # compile server (tsc) + build UI (vite) -> dist/ dan web/dist/
+npm run build     # compile the server (tsc) and the UI (vite) -> dist/ and web/dist/
 
-# 4. Jalankan dengan PM2
-npm i -g pm2      # kalau belum ada
+# 4. Run with PM2
+npm i -g pm2      # if not installed yet
 pm2 start ecosystem.config.cjs
 pm2 save
-pm2 startup       # ikuti instruksi agar PM2 auto-start saat reboot
+pm2 startup       # follow the instructions so PM2 starts again after a reboot
 ```
 
-Dashboard default di `http://<server>:3000`. Kalau diakses lewat HTTPS
-(reverse proxy nginx/caddy), set `COOKIE_SECURE=true` di `.env`.
+The dashboard listens on `http://<server>:3000` by default. If you serve it over
+HTTPS (nginx/caddy reverse proxy), set `COOKIE_SECURE=true` in `.env`.
 
-> **Panduan hosting lengkap (step-by-step + verifikasi tiap langkah,
-> termasuk Nginx + HTTPS + PM2 auto-start saat reboot):** lihat
-> [`docs/HOSTING.md`](docs/HOSTING.md). Ditulis supaya AI coding agent bisa
-> mengerjakan deployment dari nol sampai live tanpa perlu bertanya balik,
-> kecuali untuk keputusan yang memang butuh operator manusia (domain,
-> kredensial akun, dsb. — lihat bagian 1 di dokumen itu).
+> **Full hosting guide** (step by step with a check after each step, including
+> Nginx, HTTPS, and PM2 auto-start): see [`docs/HOSTING.md`](docs/HOSTING.md). It
+> is written so an AI coding agent can take the deployment from zero to live,
+> asking only for decisions that really need a human operator (domain, account
+> credentials, and so on — see section 1 there).
 
-## Kenapa login bukan lewat browser (Playwright)?
+## Why sign-in does not use a browser (Playwright)
 
-`premiumportal.id` ada di balik **Cloudflare bot-management** yang memblokir
-request login (Next.js Server Action, header `next-action`) begitu
-terdeteksi berasal dari Chromium yang dikendalikan otomatisasi — ini
-terbukti lewat testing langsung: Playwright headless *maupun* headed
-sama-sama kena 403 "Just a moment..." persis di request POST login,
-walau halaman login-nya sendiri bisa termuat.
+`premiumportal.id` sits behind **Cloudflare bot management**, which blocks the
+sign-in request (a Next.js Server Action with a `next-action` header) when it
+comes from an automated Chromium. This was confirmed by direct testing: both
+headless and headed Playwright received a 403 "Just a moment..." on exactly the
+sign-in POST, although the login page itself loaded.
 
-Solusinya ada di `scripts/portal_client.py`: login & cek status akun lewat
-`curl_cffi` (meniru TLS/JA3 fingerprint Chrome asli) — ini lolos karena
-tidak membawa "jejak" automation yang dideteksi Cloudflare. Detail
-teknisnya:
+The solution is in `scripts/portal_client.py`: sign-in and status checks go
+through `curl_cffi`, which imitates a real Chrome TLS/JA3 fingerprint and so does
+not carry the automation traits Cloudflare detects. Technical details:
 
-- Hash header `next-action` **berubah tiap kali Next.js di-build ulang**,
-  jadi tidak di-hardcode — digali otomatis dari bundle JS yang sedang live
-  (dicari lewat nama fungsi `loginAction`/`getUserPackages`, bukan posisi
-  tetap, supaya tetap jalan walau build berganti).
-- Status akun (`premiumExpiresAt`, nama paket) diambil dari action
-  `getUserPackages` di halaman dashboard, dalam **sesi/koneksi yang sama**
-  dengan login — sesi baru yang langsung dipakai tanpa pemanasan (GET apa
-  pun lebih dulu) ditolak 401 oleh backend walau token valid.
-- `accessToken` yang didapat adalah JWT dengan `exp` ~24 jam — dipakai
-  worker untuk cek-cepat tanpa login ulang; login ulang penuh hanya
-  terjadi kalau pengecekan itu gagal (token kedaluwarsa/revoked).
+- The `next-action` header hash **changes on every Next.js rebuild**, so it is not
+  hard-coded. It is extracted from the live JS bundle (located by the function
+  names `loginAction` / `getUserPackages`, not by position).
+- Account status (`premiumExpiresAt`, package name) comes from the
+  `getUserPackages` action on the site's dashboard page, in the **same
+  session/connection** as the sign-in. A fresh session used without a warm-up
+  request is rejected with 401 even with a valid token.
+- The `accessToken` is a JWT with an `exp` of about 24 hours. The worker uses it
+  for a cheap check; a full sign-in only happens when that check fails.
 
-Node tidak punya library resmi untuk impersonasi TLS seperti `curl_cffi`,
-jadi Node worker memanggil `scripts/portal_client.py` sebagai subprocess
-(kredensial dikirim lewat stdin, bukan argumen CLI, supaya tidak muncul
-di `ps`/process list).
+Node has no official TLS impersonation library like `curl_cffi`, so the Node
+processes run `scripts/portal_client.py` as a subprocess. Credentials are passed
+on stdin, not as CLI arguments, so they don't show up in the process list.
 
-## Cookie per aplikasi (Netflix, Canva, ChatGPT, dst.)
+## Per-app cookies (Netflix, Canva, ChatGPT, etc.)
 
-Ditemukan lewat reverse-engineering ekstensi resmi "Premium Portal
-Extension" (`static/background/index.js`, deobfuscated manual — lihat git
-history skrip `scripts/apps_client.py` untuk detail penuh): ada backend
-terpisah, **`consumer-api.premiumportal.id`**, dipakai dengan header
+Found by reverse engineering the official "Premium Portal Extension"
+(`static/background/index.js`, deobfuscated by hand — see the history of
+`scripts/apps_client.py`): there is a separate backend,
+**`consumer-api.premiumportal.id`**, called with
 `Authorization: Bearer <accessToken>`:
 
-- `GET /extensions/init/full` → katalog ~80 app beserta `items[]`-nya
-  (tiap app punya banyak "slot akun" bersama, mis. Netflix punya 97 item).
-- `GET /extensions/get-cookies/{itemId}` → cookie **siap pakai**, formatnya
-  identik 1:1 dengan Cookie-Editor (sudah divalidasi dengan Netflix asli:
-  `NetflixId`, `SecureNetflixId`, dst).
+- `GET /extensions/init/full` — a catalog of about 80 apps and their `items[]`
+  (each app has many shared "account slots"; Netflix has 97 items, for example).
+- `GET /extensions/get-cookies/{itemId}` — **ready-to-use** cookies in exactly the
+  Cookie-Editor format (verified against real Netflix cookies).
 
-**Desain keamanan penting**: worker HANYA mensinkron katalog app+item secara
-otomatis (aman, murni metadata, tidak menyentuh kuota). Pengambilan cookie
-per item (`get-cookies`) **selalu manual**, dipicu tombol **"Get"** di
-dashboard — tidak pernah otomatis/massal. Ini karena beberapa app (terbukti
-dari teks di kode ekstensi sendiri, mis. Netflix: *"dibatasi untuk pilih 10
-akun dalam 24 jam"*) punya limit harian; mengambil cookie semua item
-sekaligus bisa memicu banned.
+**Important safety design**: the worker only syncs the app and item catalog
+automatically (metadata only, no quota used). Fetching an item's cookies
+(`get-cookies`) is **always manual**, triggered by the **Get** button — never
+automatic or in bulk. Some apps have daily limits (the extension's own text says,
+for Netflix, that you may only pick 10 accounts in 24 hours), and fetching every
+item at once could get the account banned.
 
-Tidak semua app pakai `targetType: "cookies"` — ada juga `"autofill"`
-(isi form otomatis via kredensial, endpoint `/items/creds`), `"list"`, dan
-`"link"` (cuma link langsung). Dashboard saat ini hanya mendukung export
-untuk `targetType: "cookies"`; yang lain ditampilkan tapi belum ada aksinya.
+Not every app uses `targetType: "cookies"`. There are also `"autofill"` (form
+filling with credentials via `/items/creds`), `"list"`, and `"link"`. The
+dashboard only exports cookies for `targetType: "cookies"`; the others are listed
+without actions.
 
-Alur di dashboard: klik jumlah app pada baris akun → pilih app → pilih
-item/slot → klik **Get** → klik ikon download untuk export `cookies.json`.
+In the dashboard: click the app count on an account row → pick an app → pick an
+item/slot → click **Get** → click the download icon to export `cookies.json`.
 
-## Menambah / mengganti akun
+## Adding or changing accounts
 
-Tinggal tambah baris `ACCOUNT_N_LABEL` / `ACCOUNT_N_EMAIL` /
-`ACCOUNT_N_PASSWORD` di `.env`, lalu:
+Add `ACCOUNT_N_LABEL` / `ACCOUNT_N_EMAIL` / `ACCOUNT_N_PASSWORD` lines to `.env`,
+then:
 
 ```bash
 pm2 restart cookie-vault-worker cookie-vault-web
 ```
 
-Akun yang dihapus dari `.env` otomatis dinonaktifkan di dashboard (bukan
-dihapus datanya).
+Accounts removed from `.env` are deactivated in the dashboard; their data is not
+deleted.
 
-## Export cookie
+Passwords may contain `#`, `!`, `$` and similar characters. Do not put a comment
+after a password on the same line.
 
-Di dashboard, klik **Export cookie.json** pada akun yang statusnya
-`Aktif`/`Expired` — file yang diunduh formatnya identik dengan hasil
-**Export → JSON** di ekstensi Cookie-Editor, tinggal **Import** langsung.
+## Exporting cookies
 
-## Riwayat akses
+In the dashboard, click **Export cookie.json** on an account whose status is
+`Active` or `Expired`. The downloaded file has the same format as Cookie-Editor's
+**Export → JSON**, so you can **Import** it directly.
 
-Halaman **Logs** menampilkan 10 entri terbaru per halaman, dalam tiga tab:
+## Access history
 
-- **Riwayat login** — login berhasil, password salah, dan logout, lengkap
-  dengan jam, IP, dan perangkat.
-- **Pengambilan cookie** — Get dan unduhan cookie per IP: app, item, akun, dan
-  jumlah cookie. Klik sebuah IP untuk memfilter. Nilai cookie tidak disimpan di
-  log.
-- **Aktivitas sistem** — login worker, cek sesi, dan sinkron katalog.
+The **Logs** page shows 10 entries per page, newest first, in three tabs:
 
-Disimpan maksimal 10.000 entri login dan 10.000 entri cookie (yang terlama
-dihapus). Semua pengguna dashboard memakai satu `ADMIN_PASSWORD`, jadi orang
-hanya bisa dibedakan dari IP dan perangkatnya.
+- **Sign-ins** — successful sign-ins, wrong passwords, and sign-outs, with time,
+  IP, and device.
+- **Cookies** — cookie fetches and downloads per IP: app, item, account, and
+  cookie count. Click an IP to filter. Cookie values are never logged.
+- **System** — worker sign-ins, session checks, and catalog syncs.
 
-IP diambil dari `X-Forwarded-For` hanya kalau request datang dari proxy
-tepercaya (`TRUST_PROXY`, default `loopback` = Nginx di server yang sama). Kalau
-ada proxy lain di depannya (mis. Cloudflare), atur agar Nginx meneruskan IP asli
-(`real_ip_header`), atau yang tercatat adalah IP proxy tersebut.
+At most 10,000 sign-in entries and 10,000 cookie entries are kept; the oldest are
+removed first.
 
-## Keamanan
+The IP is taken from `X-Forwarded-For` only when the request comes from a trusted
+proxy (`TRUST_PROXY`, default `loopback` = Nginx on the same server). If another
+proxy sits in front (such as Cloudflare), configure Nginx to forward the real IP
+(`real_ip_header`), otherwise that proxy's IP is recorded.
 
-- Semua cookie di SQLite dienkripsi (AES-256-GCM) dengan `SECRET_KEY`.
-- Endpoint `/api/*` (kecuali `/api/login`) butuh sesi admin (`ADMIN_PASSWORD`).
-- `.env` berisi kredensial portal — jangan commit, sudah ada di `.gitignore`.
-- Pastikan penggunaan scraping/login otomatis ini sesuai Ketentuan
-  Layanan portal yang bersangkutan.
+## Security
 
-## Development (Windows, lokal)
+- All cookies in SQLite are encrypted (AES-256-GCM) with `SECRET_KEY`.
+- Every `/api/*` endpoint except `/api/login` requires a signed-in session.
+- `.env` holds account credentials — never commit it (it is in `.gitignore`).
+- Make sure automated sign-in and scraping comply with the terms of service of
+  the site involved.
+
+## Development (Windows, local)
 
 ```bash
-npm run dev     # web + worker + ui sekaligus (butuh concurrently, sudah ter-install)
+npm run dev     # web + worker + UI together (uses concurrently, already installed)
 ```
 
-atau jalankan terpisah kalau mau log masing-masing:
+or run them separately to get separate logs:
 
 ```bash
-npm run dev:web      # fastify + api, port 3000
-npm run dev:ui       # vite dev server (proxy /api ke :3000), port 5173
-npm run dev:worker   # worker (login via scripts/portal_client.py)
+npm run dev:web      # Fastify + API, port 3000
+npm run dev:ui       # Vite dev server (proxies /api to :3000), port 5173
+npm run dev:worker   # worker (signs in via scripts/portal_client.py)
 ```
