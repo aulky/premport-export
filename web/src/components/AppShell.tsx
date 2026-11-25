@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { LayoutDashboard, LayoutGrid, ScrollText, BookOpen, Menu, X, LogOut } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, ScrollText, BookOpen } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
   SidebarSection,
   SidebarItem,
-  SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { APP_NAME, Logo } from "@/components/Logo";
+import { Logo } from "@/components/Logo";
+import { ShellContext } from "@/components/PageHeader";
 import { api } from "@/lib/api";
 
 const NAV = [
@@ -18,7 +17,7 @@ const NAV = [
   { to: "/tutorial", label: "Tutorial", icon: BookOpen, match: (p: string) => p === "/tutorial" },
 ];
 
-function SidebarContent({ path, navigate, onLogout }: { path: string; navigate: (to: string) => void; onLogout: () => void }) {
+function SidebarContent({ path, navigate }: { path: string; navigate: (to: string) => void }) {
   return (
     <Sidebar className="h-full w-full rounded-none p-3 ring-0 border-r border-sidebar-border">
       <SidebarHeader>
@@ -36,12 +35,6 @@ function SidebarContent({ path, navigate, onLogout }: { path: string; navigate: 
           </SidebarItem>
         ))}
       </SidebarSection>
-
-      <SidebarFooter>
-        <SidebarItem icon={<LogOut />} onClick={onLogout}>
-          Log out
-        </SidebarItem>
-      </SidebarFooter>
     </Sidebar>
   );
 }
@@ -50,13 +43,11 @@ export function AppShell({
   path,
   navigate,
   onLogout,
-  title,
   children,
 }: {
   path: string;
   navigate: (to: string) => void;
   onLogout: () => void;
-  title?: string;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -74,7 +65,7 @@ export function AppShell({
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar -- tetap tampil di layar besar */}
       <div className="hidden shrink-0 lg:flex lg:w-60">
-        <SidebarContent path={path} navigate={navigate} onLogout={() => void handleLogout()} />
+        <SidebarContent path={path} navigate={navigate} />
       </div>
 
       {/* Drawer -- overlay di layar kecil/medium */}
@@ -88,22 +79,15 @@ export function AppShell({
                 setMobileOpen(false);
                 navigate(to);
               }}
-              onLogout={() => void handleLogout()}
             />
           </div>
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <header className="flex items-center gap-3 border-b border-border bg-card/70 px-4 py-3 backdrop-blur lg:hidden">
-          <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen((o) => !o)} aria-label="Open menu">
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </Button>
-          <Logo className="size-7 shrink-0" />
-          <span className="text-sm font-semibold text-brand">{title ?? APP_NAME}</span>
-        </header>
-
-        <div className="flex-1">{children}</div>
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <ShellContext.Provider value={{ openMenu: () => setMobileOpen(true), logout: () => void handleLogout() }}>
+          {children}
+        </ShellContext.Provider>
       </div>
     </div>
   );

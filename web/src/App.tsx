@@ -6,7 +6,6 @@ import { AppsPage } from "@/pages/AppsPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { TutorialPage } from "@/pages/TutorialPage";
 import { AppShell } from "@/components/AppShell";
-import { APP_NAME } from "@/components/Logo";
 
 function parseAccountId(pathname: string): string | null {
   const m = /^\/accounts\/([^/]+)\/?$/.exec(pathname);
@@ -49,26 +48,21 @@ export function App() {
 
   const accountId = parseAccountId(path);
   let page: React.ReactNode;
-  let title = APP_NAME;
   if (accountId) {
     page = <AccountPage accountId={accountId} onBack={() => navigate("/")} />;
-    title = "Account";
   } else if (path === "/apps" || path.startsWith("/apps/")) {
     const appsAccountId = parseAppsAccountId(path);
     page = <AppsPage accountId={appsAccountId} onSelectAccount={(id) => navigate(`/apps/${encodeURIComponent(id)}`)} />;
-    title = "Apps";
   } else if (path === "/logs") {
     page = <LogsPage />;
-    title = "Logs";
   } else if (path === "/tutorial") {
     page = <TutorialPage />;
-    title = "Tutorial";
   } else {
     page = <Dashboard onOpenAccount={(id) => navigate(`/accounts/${encodeURIComponent(id)}`)} onOpenLogs={() => navigate("/logs")} />;
   }
 
   return (
-    <AppShell path={path} navigate={navigate} onLogout={handleLogout} title={title}>
+    <AppShell path={path} navigate={navigate} onLogout={handleLogout}>
       {page}
     </AppShell>
   );

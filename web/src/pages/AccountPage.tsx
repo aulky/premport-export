@@ -5,6 +5,7 @@ import { ArrowLeft, Download, RefreshCw } from "lucide-react";
 import { api, type AccountDto } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AppsExplorer } from "@/components/AppsExplorer";
+import { PageHeader } from "@/components/PageHeader";
 
 export function AccountPage({ accountId, onBack }: { accountId: string; onBack: () => void }) {
   const [account, setAccount] = useState<AccountDto | null>(null);
@@ -41,35 +42,41 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
 
   return (
     <div className="min-h-full bg-background">
-      <header className="flex items-center justify-between border-b border-border bg-card/70 px-6 py-4 backdrop-blur">
-        <div className="flex items-center gap-3">
+      <PageHeader
+        leading={
           <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back">
             <ArrowLeft className="size-4" />
           </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-mono text-lg font-semibold text-brand">{account?.label ?? accountId}</h1>
+        }
+        title={
+          <>
+            <span className="truncate">{account?.label ?? accountId}</span>
+            <span className="hidden items-center gap-2 md:flex">
               {account?.isPrimary && <Badge variant="secondary">Primary</Badge>}
               {account && <StatusBadge status={account.status} />}
-            </div>
-            <p className="text-sm text-muted-foreground">{account?.email}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={!account || (account.status !== "valid" && account.status !== "expired")}
-            onClick={() => account && window.open(api.cookiesUrl(account.id), "_blank")}
-          >
-            <Download className="size-4" />
-            Export session
-          </Button>
-          <Button variant="outline" disabled={refreshing} onClick={() => void handleRefresh()}>
-            <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Signing in…" : "Refresh"}
-          </Button>
-        </div>
-      </header>
+            </span>
+          </>
+        }
+        subtitle={account?.email}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              disabled={!account || (account.status !== "valid" && account.status !== "expired")}
+              onClick={() => account && window.open(api.cookiesUrl(account.id), "_blank")}
+              aria-label="Export session"
+              title="Export session"
+            >
+              <Download className="size-4" />
+              <span className="hidden sm:inline">Export session</span>
+            </Button>
+            <Button variant="outline" disabled={refreshing} onClick={() => void handleRefresh()} aria-label="Refresh" title="Refresh">
+              <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{refreshing ? "Signing in…" : "Refresh"}</span>
+            </Button>
+          </>
+        }
+      />
 
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-8">
         {account?.lastError && (

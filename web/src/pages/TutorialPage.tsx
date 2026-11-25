@@ -1,7 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Download, Puzzle, ClipboardPaste, RefreshCcw, CheckCircle2 } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 
 const STEPS: { icon: typeof Puzzle; title: string; body: React.ReactNode }[] = [
   {
@@ -102,19 +103,9 @@ const STEPS: { icon: typeof Puzzle; title: string; body: React.ReactNode }[] = [
 export function TutorialPage() {
   return (
     <div className="min-h-full bg-background">
-      <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
-        <h1 className="font-mono text-lg font-semibold text-brand">Tutorial</h1>
-        <p className="text-sm text-muted-foreground">From installing the extension to using the cookies on a website.</p>
-      </header>
+      <PageHeader title="Tutorial" subtitle="From installing the extension to using the cookies on a website." />
 
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
-        <Card className="shadow-panel lg:hidden">
-          <CardHeader>
-            <CardTitle>Tutorial</CardTitle>
-            <CardDescription>From installing the extension to using the cookies on a website.</CardDescription>
-          </CardHeader>
-        </Card>
-
         {STEPS.map((step) => (
           <Card key={step.title} className="shadow-panel">
             <CardHeader>

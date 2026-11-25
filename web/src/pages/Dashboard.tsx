@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw, Search } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
+import { PageHeader } from "@/components/PageHeader";
 
 function timeAgo(ts: number | null) {
   if (!ts) return "—";
@@ -95,22 +96,18 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
 
   return (
     <div className="min-h-full bg-background">
-      <header className="hidden items-center justify-between border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:flex">
-        <div>
-          <h1 className="font-mono text-lg font-semibold text-brand">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Account and cookie status, always up to date</p>
-        </div>
-        <Button variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()}>
-          <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
-          {refreshingAll ? "Refreshing all…" : "Refresh All"}
-        </Button>
-      </header>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Account and cookie status, always up to date"
+        actions={
+          <Button variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()} aria-label="Refresh All" title="Refresh All">
+            <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{refreshingAll ? "Refreshing all…" : "Refresh All"}</span>
+          </Button>
+        }
+      />
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <Button className="lg:hidden" variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()}>
-          <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
-          {refreshingAll ? "Refreshing all…" : "Refresh All"}
-        </Button>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard label="Total accounts" value={summary.total} />
           <StatCard label="Active" value={summary.valid} tone="success" />

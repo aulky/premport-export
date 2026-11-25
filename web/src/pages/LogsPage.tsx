@@ -9,6 +9,7 @@ import { AccessLog } from "@/components/AccessLog";
 import { Pagination, pageCountOf, PAGE_SIZE } from "@/components/Pagination";
 import { LogIn, ShieldCheck, RefreshCcw, Cookie, Search } from "lucide-react";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
+import { PageHeader } from "@/components/PageHeader";
 
 function timeAgo(ts: number) {
   const s = Math.floor(Date.now() / 1000) - ts;
@@ -79,13 +80,9 @@ export function LogsPage() {
 
   return (
     <div className="min-h-full bg-background">
-      <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
-        <h1 className="font-mono text-lg font-semibold text-brand">Logs</h1>
-        <p className="text-sm text-muted-foreground">Dashboard access history, cookie fetches, and system activity.</p>
-      </header>
+      <PageHeader title="Logs" subtitle="Dashboard access history, cookie fetches, and system activity." />
 
       <main className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="font-mono text-lg font-semibold text-brand lg:hidden">Logs</h1>
         <Tabs defaultValue="auth">
           <TabsList>
             <TabsTrigger value="auth">

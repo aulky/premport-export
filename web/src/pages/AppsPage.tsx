@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { AppsExplorer } from "@/components/AppsExplorer";
 import { api, type AccountDto } from "@/lib/api";
+import { PageHeader } from "@/components/PageHeader";
 
 /** Halaman khusus untuk menjelajah katalog app + ambil cookie, lintas akun. */
 export function AppsPage({ accountId, onSelectAccount }: { accountId: string | null; onSelectAccount: (id: string) => void }) {
@@ -21,10 +22,7 @@ export function AppsPage({ accountId, onSelectAccount }: { accountId: string | n
 
   return (
     <div className="min-h-full bg-background">
-      <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
-        <h1 className="font-mono text-lg font-semibold text-brand">Apps</h1>
-        <p className="text-sm text-muted-foreground">Browse the app catalog and fetch cookies per item/account slot.</p>
-      </header>
+      <PageHeader title="Apps" subtitle="Browse the app catalog and fetch cookies per item/account slot." />
 
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-col gap-1.5">

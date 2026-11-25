@@ -42,3 +42,9 @@
   --accent: #1c1f36;
   --accent-foreground: #d7d9f5;
 }
+
+/* Scrollbar tipis dengan jalur transparan di seluruh aplikasi. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(15 61 61 / 0.25) transparent;
+}
