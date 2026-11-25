@@ -6,6 +6,16 @@
     <meta name="theme-color" content="#008c8d" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Cookie Scraping Tools</title>
+    <script>
+      // Terapkan tema SEBELUM React mount, supaya tidak ada kedipan putih->gelap.
+      (function () {
+        try {
+          var saved = localStorage.getItem("theme");
+          var dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.toggle("dark", dark);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
