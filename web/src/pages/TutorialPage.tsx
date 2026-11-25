@@ -6,72 +6,71 @@ import { ExternalLink, Download, Puzzle, ClipboardPaste, RefreshCcw, CheckCircle
 const STEPS: { icon: typeof Puzzle; title: string; body: React.ReactNode }[] = [
   {
     icon: Puzzle,
-    title: "1. Install ekstensi Cookie-Editor",
+    title: "1. Install the Cookie-Editor extension",
     body: (
       <>
         <p>
-          Buka Chrome Web Store, cari <strong>"Cookie-Editor"</strong>, lalu klik <strong>Add to Chrome</strong>. Bisa juga
-          lewat link resminya di{" "}
+          Open the Chrome Web Store, search for <strong>"Cookie-Editor"</strong>, then click <strong>Add to Chrome</strong>.
+          You can also use the official link at{" "}
           <a href="https://cookie-editor.com/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand underline underline-offset-2">
             cookie-editor.com <ExternalLink className="size-3" />
           </a>
           .
         </p>
         <p className="mt-2 text-muted-foreground">
-          Setelah terpasang, ikon Cookie-Editor (gambar kue) akan muncul di pojok kanan atas Chrome, di sebelah address bar.
-          Kalau tidak terlihat, klik ikon puzzle (ekstensi) lalu pin Cookie-Editor supaya selalu tampil.
+          Once installed, the Cookie-Editor icon (a cookie) appears at the top right of Chrome, next to the address bar.
+          If you can't see it, click the puzzle (extensions) icon and pin Cookie-Editor so it stays visible.
         </p>
       </>
     ),
   },
   {
     icon: Download,
-    title: "2. Ambil & unduh cookie dari Cookie Scraping Tools",
+    title: "2. Fetch and download cookies from Cookie Scraping Tools",
     body: (
       <>
         <p>
-          Di dashboard Cookie Scraping Tools, buka akun yang diinginkan → cari app tujuan (mis. Netflix, ChatGPT) → pilih
-          item/slot akun → klik <Badge variant="success">Get</Badge>.
+          In the Cookie Scraping Tools dashboard, open the account you want → find the target app (e.g. Netflix, ChatGPT) →
+          pick an item/account slot → click <Badge variant="success">Get</Badge>.
         </p>
         <p className="mt-2 text-muted-foreground">
-          Setelah berhasil, klik ikon download di sebelah tombol Get. File <code>&lt;itemId&gt;-cookies.json</code> akan
-          terunduh ke folder Downloads. File inilah yang akan di-import ke Cookie-Editor.
+          When it succeeds, click the download icon next to the Get button. A <code>&lt;itemId&gt;-cookies.json</code> file
+          is saved to your Downloads folder. This is the file you import into Cookie-Editor.
         </p>
       </>
     ),
   },
   {
     icon: ExternalLink,
-    title: "3. Buka website tujuan dulu (penting!)",
+    title: "3. Open the target website first (important!)",
     body: (
       <p>
-        Sebelum import, <strong>buka dulu website yang sesuai</strong> dengan cookie yang diambil (mis. kalau cookie-nya
-        Netflix, buka <code>netflix.com</code> di tab aktif). Cookie-Editor selalu bekerja pada <em>domain tab yang
-        sedang aktif</em> — kalau Anda sedang di tab lain, cookie akan ter-import ke domain yang salah dan tidak akan
-        berfungsi.
+        Before importing, <strong>open the website that matches</strong> the cookies you fetched (e.g. for Netflix cookies,
+        open <code>netflix.com</code> in the active tab). Cookie-Editor always works on <em>the domain of the active
+        tab</em> — if you are on another tab, the cookies are imported into the wrong domain and won't work.
       </p>
     ),
   },
   {
     icon: ClipboardPaste,
-    title: "4. Buka Cookie-Editor, lalu Import",
+    title: "4. Open Cookie-Editor and import",
     body: (
       <>
-        <p>Di tab website tujuan tadi, klik ikon Cookie-Editor di toolbar Chrome. Akan terbuka panel kecil berisi daftar cookie domain tersebut (mungkin kosong/beda kalau belum login).</p>
+        <p>On the target website's tab, click the Cookie-Editor icon in the Chrome toolbar. A small panel lists that domain's cookies (it may be empty or different if you are not signed in).</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
           <li>
-            Klik tombol <strong>Import</strong> (ikon panah masuk, biasanya di baris tombol bawah panel).
+            Click the <strong>Import</strong> button (the inward arrow, usually in the bottom button row of the panel).
           </li>
           <li>
-            Ada dua cara: <strong>pilih file</strong> hasil unduhan tadi (<code>*-cookies.json</code>), atau{" "}
-            <strong>paste</strong> langsung isi JSON-nya ke kotak teks yang muncul.
+            There are two ways: <strong>choose the file</strong> you downloaded (<code>*-cookies.json</code>), or{" "}
+            <strong>paste</strong> its JSON content into the text box that appears.
           </li>
           <li>
-            Kalau pilih paste: buka file <code>*-cookies.json</code> yang terunduh pakai text editor / Notepad, salin
-            (Ctrl+A, Ctrl+C) seluruh isinya, lalu paste (Ctrl+V) ke kotak import Cookie-Editor.
+            To paste: open the downloaded <code>*-cookies.json</code> file in a text editor / Notepad, copy everything
+            (Ctrl+A, Ctrl+C), then paste (Ctrl+V) into Cookie-Editor's import box.
           </li>
           <li>
-            Klik <strong>Import</strong> / tombol centang untuk konfirmasi.
+            Click <strong>Import</strong> / the check button to confirm.
           </li>
         </ol>
       </>
@@ -79,23 +78,22 @@ const STEPS: { icon: typeof Puzzle; title: string; body: React.ReactNode }[] = [
   },
   {
     icon: RefreshCcw,
-    title: "5. Refresh halaman",
+    title: "5. Reload the page",
     body: (
       <p>
-        Setelah import berhasil, <strong>reload halaman</strong> (tekan F5 atau Ctrl+R). Cookie yang baru di-import baru
-        akan terpakai setelah halaman dimuat ulang.
+        After a successful import, <strong>reload the page</strong> (F5 or Ctrl+R). Imported cookies only take effect once
+        the page is loaded again.
       </p>
     ),
   },
   {
     icon: CheckCircle2,
-    title: "6. Selesai -- cek hasilnya",
+    title: "6. Done -- check the result",
     body: (
       <p>
-        Kalau cookie valid dan belum kadaluarsa, halaman akan menunjukkan Anda sudah login (mis. masuk ke halaman
-        "Browse" Netflix, bukan halaman login). Kalau masih diminta login, cek lagi: domain tab harus persis sama
-        dengan domain cookie, dan coba klik <strong>Get</strong> ulang di Cookie Scraping Tools untuk mengambil cookie yang lebih
-        baru.
+        If the cookies are valid and not expired, the page shows you as signed in (e.g. Netflix's "Browse" page instead
+        of the login page). If it still asks you to sign in, check that the tab's domain matches the cookie domain exactly,
+        and click <strong>Get</strong> again in Cookie Scraping Tools to fetch newer cookies.
       </p>
     ),
   },
@@ -106,14 +104,14 @@ export function TutorialPage() {
     <div className="min-h-full bg-background">
       <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
         <h1 className="font-mono text-lg font-semibold text-brand">Tutorial</h1>
-        <p className="text-sm text-muted-foreground">Dari install ekstensi sampai cookie berhasil terpakai di website.</p>
+        <p className="text-sm text-muted-foreground">From installing the extension to using the cookies on a website.</p>
       </header>
 
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
         <Card className="shadow-panel lg:hidden">
           <CardHeader>
             <CardTitle>Tutorial</CardTitle>
-            <CardDescription>Dari install ekstensi sampai cookie berhasil terpakai di website.</CardDescription>
+            <CardDescription>From installing the extension to using the cookies on a website.</CardDescription>
           </CardHeader>
         </Card>
 
@@ -131,14 +129,14 @@ export function TutorialPage() {
 
         <Card className="border-highlight/30 bg-accent shadow-panel">
           <CardContent className="flex flex-col gap-2 pt-6 text-sm">
-            <p className="font-medium text-accent-foreground">Tips kalau gagal:</p>
+            <p className="font-medium text-accent-foreground">If it fails:</p>
             <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-              <li>Pastikan tab aktif persis di domain yang sama dengan cookie (termasuk subdomain www vs tanpa www).</li>
-              <li>Beberapa app punya batas pengambilan harian (lihat catatan di halaman app masing-masing) -- kalau "Get" gagal karena limit, tunggu & coba lagi nanti.</li>
-              <li>Cookie yang sudah lama (lihat kolom "diambil") bisa saja sudah kadaluarsa -- klik "Get" lagi untuk ambil yang baru sebelum import ulang.</li>
+              <li>Make sure the active tab is on exactly the same domain as the cookies (including www vs. no www).</li>
+              <li>Some apps have a daily fetch limit (see the note on each app's page) -- if "Get" fails because of the limit, wait and try again later.</li>
+              <li>Old cookies (check when they were fetched) may have expired -- click "Get" again before re-importing.</li>
               <li>
-                Gunakan tombol <Badge variant="secondary">Export cookie.json</Badge> di Dashboard untuk mengekspor sesi
-                akun itu sendiri, berbeda dengan cookie per-app yang diambil lewat "Get".
+                Admins can use <Badge variant="secondary">Export cookie.json</Badge> on the Dashboard to export the account's
+                own session, which is different from the per-app cookies fetched with "Get".
               </li>
             </ul>
           </CardContent>
@@ -147,7 +145,7 @@ export function TutorialPage() {
         <div className="pb-4">
           <Button variant="outline" asChild>
             <a href="https://cookie-editor.com/" target="_blank" rel="noreferrer">
-              Buka cookie-editor.com <ExternalLink className="size-4" />
+              Open cookie-editor.com <ExternalLink className="size-4" />
             </a>
           </Button>
         </div>

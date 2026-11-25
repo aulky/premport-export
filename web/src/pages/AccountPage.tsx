@@ -43,7 +43,7 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
     <div className="min-h-full bg-background">
       <header className="flex items-center justify-between border-b border-border bg-card/70 px-6 py-4 backdrop-blur">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Kembali">
+          <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back">
             <ArrowLeft className="size-4" />
           </Button>
           <div>
@@ -62,11 +62,11 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
             onClick={() => account && window.open(api.cookiesUrl(account.id), "_blank")}
           >
             <Download className="size-4" />
-            Export sesi
+            Export session
           </Button>
           <Button variant="outline" disabled={refreshing} onClick={() => void handleRefresh()}>
             <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Login ulang…" : "Refresh"}
+            {refreshing ? "Signing in…" : "Refresh"}
           </Button>
         </div>
       </header>

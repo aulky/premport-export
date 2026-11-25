@@ -8,19 +8,19 @@ import { ChevronLeft, Download, RefreshCw, Search } from "lucide-react";
 import { api, type AppDto, type ItemDto } from "@/lib/api";
 
 function timeAgo(ts: number | null) {
-  if (!ts) return "belum pernah";
+  if (!ts) return "never";
   const s = Math.floor(Date.now() / 1000) - ts;
-  if (s < 60) return `${s}d lalu`;
-  if (s < 3600) return `${Math.floor(s / 60)}m lalu`;
-  if (s < 86400) return `${Math.floor(s / 3600)}j lalu`;
-  return `${Math.floor(s / 86400)}h lalu`;
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
 const TARGET_LABEL: Record<string, string> = {
-  cookies: "Cookie (bisa di-Get)",
-  autofill: "Auto-isi form",
-  list: "Daftar akun",
-  link: "Link langsung",
+  cookies: "Cookie (Get available)",
+  autofill: "Form autofill",
+  list: "Account list",
+  link: "Direct link",
 };
 
 /** Katalog app + item/slot 1 akun -- search, pilih app, pilih item, Get cookie, download. */
@@ -86,16 +86,16 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {selectedApp && (
-            <button type="button" onClick={() => setSelectedApp(null)} className="rounded-full p-1 hover:bg-accent" aria-label="Kembali ke daftar app">
+            <button type="button" onClick={() => setSelectedApp(null)} className="rounded-full p-1 hover:bg-accent" aria-label="Back to app list">
               <ChevronLeft className="size-4" />
             </button>
           )}
-          {selectedApp ? selectedApp.name : "Daftar app"}
+          {selectedApp ? selectedApp.name : "App list"}
         </CardTitle>
         <CardDescription>
           {selectedApp
-            ? "Klik \"Get\" untuk mengambil cookie item ini (manual, 1x per klik -- beberapa app punya limit harian dari penyedia)."
-            : "Katalog disinkron otomatis saat login/refresh. Cari untuk mempersempit."}
+            ? "Click \"Get\" to fetch this item's cookies (manual, once per click -- some apps have a daily limit set by the provider)."
+            : "The catalog syncs automatically on sign-in/refresh. Search to narrow it down."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -103,7 +103,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-8"
-            placeholder={selectedApp ? "Cari item/slot akun…" : "Cari app (Netflix, ChatGPT, dst.)…"}
+            placeholder={selectedApp ? "Search items/account slots…" : "Search apps (Netflix, ChatGPT, etc.)…"}
             value={selectedApp ? itemSearch : appSearch}
             onChange={(e) => (selectedApp ? setItemSearch(e.target.value) : setAppSearch(e.target.value))}
           />
@@ -121,8 +121,8 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
             {filteredApps?.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 {apps?.length === 0
-                  ? "Belum ada katalog app. Klik \"Refresh\" akun ini, atau tunggu worker login sekali."
-                  : "Tidak ada app yang cocok dengan pencarian."}
+                  ? "No app catalog yet. Wait for the worker to sign in once, or ask an admin to refresh this account."
+                  : "No apps match your search."}
               </p>
             )}
             {filteredApps?.map((app) => (
@@ -159,8 +159,8 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
             )}
             {selectedApp.targetType !== "cookies" && (
               <p className="rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
-                App ini pakai metode <strong>{TARGET_LABEL[selectedApp.targetType ?? ""] ?? selectedApp.targetType}</strong>,
-                belum didukung export cookie otomatis di dashboard ini.
+                This app uses the <strong>{TARGET_LABEL[selectedApp.targetType ?? ""] ?? selectedApp.targetType}</strong>,
+                method; automatic cookie export is not supported for it yet.
               </p>
             )}
             <ul className="flex max-h-[24rem] flex-col gap-1.5 overflow-y-auto">
@@ -171,14 +171,14 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                 </>
               )}
               {filteredItems?.length === 0 && items !== null && (
-                <p className="text-sm text-muted-foreground">Tidak ada item yang cocok dengan pencarian.</p>
+                <p className="text-sm text-muted-foreground">No items match your search.</p>
               )}
               {filteredItems?.map((item) => (
                 <li key={item.itemId} className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{item.itemName ?? item.itemId}</div>
                     <div className="text-xs text-muted-foreground">
-                      {item.lastCookieCount != null ? `${item.lastCookieCount} cookie · ${timeAgo(item.lastFetchedAt)}` : "belum pernah diambil"}
+                      {item.lastCookieCount != null ? `${item.lastCookieCount} cookie · ${timeAgo(item.lastFetchedAt)}` : "never fetched"}
                       {item.lastError && <span className="text-destructive"> · {item.lastError}</span>}
                     </div>
                   </div>

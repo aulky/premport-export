@@ -13,9 +13,9 @@ export async function refreshAccount(
 ): Promise<{ ok: boolean; error?: string; cookieCount?: number }> {
   const acc = getAccount(accountId);
   const creds = credentialsFor(accountId);
-  if (!acc || !creds) return { ok: false, error: "Akun tidak ditemukan / tidak ada di .env" };
+  if (!acc || !creds) return { ok: false, error: "Account not found / not defined in .env" };
 
-  const tag = source === "manual" ? "manual (tombol dashboard)" : "otomatis (worker)";
+  const tag = source === "manual" ? "manual (dashboard button)" : "automatic (worker)";
   const t0 = Date.now();
   markStatus(accountId, { status: "refreshing" });
   const res = await loginAndCapture(creds.email, creds.password);
@@ -25,11 +25,11 @@ export async function refreshAccount(
     const backoffSec = Math.min(3600, 60 * 2 ** Math.min(failCount, 6));
     markStatus(
       accountId,
-      { status: "error", last_error: res.error ?? "login gagal", fail_count: failCount, next_attempt_at: now() + backoffSec },
+      { status: "error", last_error: res.error ?? "login failed", fail_count: failCount, next_attempt_at: now() + backoffSec },
       "checked",
     );
-    logRun(accountId, "login", false, `[${tag}] ${res.error ?? "login gagal"}`, Date.now() - t0);
-    return { ok: false, error: res.error ?? "login gagal" };
+    logRun(accountId, "login", false, `[${tag}] ${res.error ?? "login failed"}`, Date.now() - t0);
+    return { ok: false, error: res.error ?? "login failed" };
   }
 
   saveSnapshot(accountId, res.cookies, res.expiresAt);

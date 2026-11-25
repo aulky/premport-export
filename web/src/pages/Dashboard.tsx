@@ -12,19 +12,19 @@ import { api, type AccountDto, type RunDto } from "@/lib/api";
 function timeAgo(ts: number | null) {
   if (!ts) return "—";
   const s = Math.floor(Date.now() / 1000) - ts;
-  if (s < 60) return `${s}s lalu`;
-  if (s < 3600) return `${Math.floor(s / 60)}m lalu`;
-  if (s < 86400) return `${Math.floor(s / 3600)}j lalu`;
-  return `${Math.floor(s / 86400)}h lalu`;
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
 function untilText(ts: number | null) {
   if (!ts) return "—";
   const s = ts - Math.floor(Date.now() / 1000);
-  if (s <= 0) return "kadaluarsa";
-  if (s < 3600) return `${Math.floor(s / 60)}m lagi`;
-  if (s < 86400) return `${Math.floor(s / 3600)}j lagi`;
-  return `${Math.floor(s / 86400)}h lagi`;
+  if (s <= 0) return "expired";
+  if (s < 3600) return `${Math.floor(s / 60)}m left`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h left`;
+  return `${Math.floor(s / 86400)}d left`;
 }
 
 export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: string) => void; onOpenLogs: () => void }) {
@@ -98,35 +98,35 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
       <header className="hidden items-center justify-between border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:flex">
         <div>
           <h1 className="font-mono text-lg font-semibold text-brand">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Status akun dan cookie, selalu up to date</p>
+          <p className="text-sm text-muted-foreground">Account and cookie status, always up to date</p>
         </div>
         <Button variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()}>
           <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
-          {refreshingAll ? "Me-refresh semua…" : "Refresh All"}
+          {refreshingAll ? "Refreshing all…" : "Refresh All"}
         </Button>
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <Button className="lg:hidden" variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()}>
           <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
-          {refreshingAll ? "Me-refresh semua…" : "Refresh All"}
+          {refreshingAll ? "Refreshing all…" : "Refresh All"}
         </Button>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard label="Total akun" value={summary.total} />
-          <StatCard label="Aktif" value={summary.valid} tone="success" />
-          <StatCard label="Perlu perhatian" value={summary.error} tone="destructive" />
+          <StatCard label="Total accounts" value={summary.total} />
+          <StatCard label="Active" value={summary.valid} tone="success" />
+          <StatCard label="Needs attention" value={summary.error} tone="destructive" />
         </div>
 
         <Card className="shadow-panel">
           <CardHeader>
-            <CardTitle>Akun & cookie</CardTitle>
+            <CardTitle>Accounts & cookies</CardTitle>
             <CardDescription>
-              Worker login ulang otomatis sebelum sesi kadaluarsa. Akun pertama (<strong>Primary</strong>) tetap dicoba
-              terus-menerus walau akun lain gagal login.
+              The worker signs in again automatically before a session expires. The first account (<strong>Primary</strong>)
+              keeps being retried even if other accounts fail to sign in.
             </CardDescription>
             <div className="relative mt-2 max-w-sm">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-8" placeholder="Cari akun…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-8" placeholder="Search accounts…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </CardHeader>
           <CardContent>
@@ -137,21 +137,21 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
               </div>
             ) : accounts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Belum ada akun. Tambahkan <code>ACCOUNT_1_EMAIL</code> / <code>ACCOUNT_1_PASSWORD</code> di{" "}
-                <code>.env</code>, lalu restart worker.
+                No accounts yet. Add <code>ACCOUNT_1_EMAIL</code> / <code>ACCOUNT_1_PASSWORD</code> to{" "}
+                <code>.env</code>, then restart the worker.
               </p>
             ) : filteredAccounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Tidak ada akun yang cocok dengan pencarian.</p>
+              <p className="text-sm text-muted-foreground">No accounts match your search.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Akun</TableHead>
+                    <TableHead>Account</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Dicek</TableHead>
-                    <TableHead>Sesi habis</TableHead>
+                    <TableHead>Checked</TableHead>
+                    <TableHead>Session ends</TableHead>
                     <TableHead>Apps</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,11 +206,11 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <CardTitle>Aktivitas terbaru</CardTitle>
-                <CardDescription>Login, cek sesi, sinkron app, & pengambilan cookie.</CardDescription>
+                <CardTitle>Recent activity</CardTitle>
+                <CardDescription>Sign-ins, session checks, app sync, and cookie fetches.</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={() => onOpenLogs()}>
-                Lihat semua log
+                View all logs
               </Button>
             </div>
           </CardHeader>
@@ -227,7 +227,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
                   <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(r.at)}</span>
                 </li>
               ))}
-              {runs.length === 0 && <p className="text-muted-foreground">Belum ada aktivitas.</p>}
+              {runs.length === 0 && <p className="text-muted-foreground">No activity yet.</p>}
             </ul>
           </CardContent>
         </Card>

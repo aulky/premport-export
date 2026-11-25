@@ -48,16 +48,16 @@ app.addHook("onRequest", async (req, reply) => {
   if (!route?.startsWith("/api/") || route === "/api/login") return;
   const token = req.cookies[COOKIE_NAME];
   if (!verifySession(token)) {
-    reply.code(401).send({ error: "Belum login" });
+    reply.code(401).send({ error: "Not signed in" });
   }
 });
 
 app.post<{ Body: { password: string } }>("/api/login", async (req, reply) => {
   const { password } = req.body ?? ({} as { password: string });
   if (typeof password !== "string" || !safeEqual(password, config.adminPassword)) {
-    logAccess(req, "login", { ok: false, message: "Password salah" });
+    logAccess(req, "login", { ok: false, message: "Wrong password" });
     reply.code(401);
-    return { error: "Password salah" };
+    return { error: "Wrong password" };
   }
   logAccess(req, "login", { ok: true });
   const token = makeSession(config.sessionTtlSec);
@@ -98,7 +98,7 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id", async (req, reply) => {
   const idx = accounts.findIndex((a) => a.id === req.params.id);
   if (idx === -1) {
     reply.code(404);
-    return { error: "Akun tidak ditemukan" };
+    return { error: "Account not found" };
   }
   const a = accounts[idx]!;
   return {
@@ -150,7 +150,7 @@ app.post<{ Params: { id: string } }>("/api/accounts/:id/refresh", async (req, re
   const { id } = req.params;
   if (refreshing.has(id)) {
     reply.code(409);
-    return { error: "Akun ini sedang di-refresh, tunggu sebentar." };
+    return { error: "This account is already being refreshed, please wait." };
   }
   refreshing.add(id);
   try {
@@ -175,7 +175,7 @@ app.post("/api/accounts/refresh-all", async () => {
   const results: { id: string; ok: boolean; error?: string; cookieCount?: number }[] = [];
   for (const a of accounts) {
     if (refreshing.has(a.id)) {
-      results.push({ id: a.id, ok: false, error: "sedang direfresh" });
+      results.push({ id: a.id, ok: false, error: "already refreshing" });
       continue;
     }
     refreshing.add(a.id);
@@ -203,17 +203,17 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   const logGet = (ok: boolean, message?: string, cookieCount?: number) =>
     logAccess(req, "cookie-get", { ok, accountId, itemId, message, cookieCount });
   if (!item) {
-    logGet(false, "Item tidak ditemukan");
+    logGet(false, "Item not found");
     reply.code(404);
-    return { error: "Item tidak ditemukan. Coba refresh katalog app dulu." };
+    return { error: "Item not found. Refresh the app catalog first." };
   }
   const portalCookies = latestCookies(accountId);
   const accessToken = portalCookies?.find((c) => c.name === "accessToken")?.value;
   if (!accessToken) {
-    logRun(accountId, "item-fetch", false, `${itemLabel}: belum ada sesi login yang valid`, Date.now() - t0);
-    logGet(false, "Belum ada sesi login yang valid");
+    logRun(accountId, "item-fetch", false, `${itemLabel}: no valid login session yet`, Date.now() - t0);
+    logGet(false, "No valid login session yet");
     reply.code(409);
-    return { error: "Belum ada sesi login yang valid untuk akun ini. Tunggu worker login dulu." };
+    return { error: "No valid login session for this account yet. Wait for the worker to sign in." };
   }
   const res = await fetchItemCookiesLive(accessToken, itemId);
   if (!res.ok) {
@@ -225,7 +225,7 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
   }
   saveItemCookies(accountId, itemId, res.cookies);
   markItemFetch(accountId, itemId, { cookieCount: res.cookies.length, error: null });
-  logRun(accountId, "item-fetch", true, `${itemLabel}: user mengambil ${res.cookies.length} cookie`, Date.now() - t0);
+  logRun(accountId, "item-fetch", true, `${itemLabel}: user fetched ${res.cookies.length} cookies`, Date.now() - t0);
   logGet(true, undefined, res.cookies.length);
   return { ok: true, cookieCount: res.cookies.length };
 });
@@ -235,7 +235,7 @@ app.get<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:it
   const cookies = latestItemCookies(req.params.id, req.params.itemId);
   if (!cookies) {
     reply.code(404);
-    return { error: "Belum ada cookie untuk item ini. Klik 'Get' dulu di dashboard." };
+    return { error: "No cookies for this item yet. Click 'Get' in the dashboard first." };
   }
   if (req.method !== "HEAD") {
     logAccess(req, "cookie-download", { ok: true, accountId: req.params.id, itemId: req.params.itemId, cookieCount: cookies.length });
@@ -249,7 +249,7 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id/cookies.json", async (req
   const cookies = latestCookies(req.params.id);
   if (!cookies) {
     reply.code(404);
-    return { error: "Belum ada snapshot cookie untuk akun ini" };
+    return { error: "No cookie snapshot for this account yet" };
   }
   if (req.method !== "HEAD") {
     logAccess(req, "session-download", { ok: true, accountId: req.params.id, cookieCount: cookies.length });

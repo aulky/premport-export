@@ -52,7 +52,7 @@ export function App() {
   let title = APP_NAME;
   if (accountId) {
     page = <AccountPage accountId={accountId} onBack={() => navigate("/")} />;
-    title = "Akun";
+    title = "Account";
   } else if (path === "/apps" || path.startsWith("/apps/")) {
     const appsAccountId = parseAppsAccountId(path);
     page = <AppsPage accountId={appsAccountId} onSelectAccount={(id) => navigate(`/apps/${encodeURIComponent(id)}`)} />;

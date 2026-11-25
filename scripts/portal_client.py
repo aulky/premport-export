@@ -77,23 +77,23 @@ def get_packages(session) -> dict:
     """Panggil getUserPackages di halaman dashboard; mengembalikan dict parsed."""
     pkg_hash = find_action(session, "/dashboard", "getUserPackages")
     if not pkg_hash:
-        return {"success": False, "errors": "getUserPackages action tidak ditemukan (markup situs berubah?)"}
+        return {"success": False, "errors": "getUserPackages action not found (site markup changed?)"}
     r = call_action(session, "/dashboard", pkg_hash, [])
     parsed = extract_data_line(r.text)
     if parsed is None:
-        return {"success": False, "errors": f"respons tidak terduga (status {r.status_code})"}
+        return {"success": False, "errors": f"unexpected response (status {r.status_code})"}
     return parsed
 
 
 def do_login(session, email, password) -> dict:
     login_hash = find_action(session, "/auth/login", "loginAction")
     if not login_hash:
-        return {"ok": False, "error": "loginAction hash tidak ditemukan (markup login berubah?)"}
+        return {"ok": False, "error": "loginAction hash not found (login markup changed?)"}
     r = call_action(session, "/auth/login", login_hash, [{"email": email, "password": password}, {"publicIp": "0.0.0.0"}])
     m = re.search(r'"accessToken":"(.*?)"', r.text)
     m2 = re.search(r'"refreshToken":"(.*?)"', r.text)
     if not m:
-        msg = "Email atau password salah, atau akun diblokir."
+        msg = "Wrong email or password, or the account is blocked."
         err_m = re.search(r'"errors":"(.*?)"', r.text)
         if err_m:
             msg = err_m.group(1)
@@ -106,7 +106,7 @@ def main():
     try:
         req = json.loads(raw)
     except json.JSONDecodeError:
-        print(json.dumps({"ok": False, "error": "input stdin bukan JSON valid"}))
+        print(json.dumps({"ok": False, "error": "stdin input is not valid JSON"}))
         return
 
     email = req.get("email")
@@ -125,11 +125,11 @@ def main():
 
         if not access_token:
             if not email or not password:
-                print(json.dumps({"ok": False, "error": "accessToken kosong dan email/password tidak diberikan"}))
+                print(json.dumps({"ok": False, "error": "accessToken is empty and no email/password was given"}))
                 return
             login_res = do_login(session, email, password)
             if not login_res.get("ok"):
-                print(json.dumps({"ok": False, "error": login_res.get("error", "login gagal")}))
+                print(json.dumps({"ok": False, "error": login_res.get("error", "login failed")}))
                 return
             access_token = login_res["accessToken"]
             refresh_token = login_res.get("refreshToken")
@@ -140,7 +140,7 @@ def main():
             refresh_token = None  # token lama dipakai ulang; refreshToken tidak kita ketahui lagi di sini
 
         if not pkg.get("success"):
-            print(json.dumps({"ok": False, "error": pkg.get("errors", "gagal mengambil status akun")}))
+            print(json.dumps({"ok": False, "error": pkg.get("errors", "failed to get account status")}))
             return
 
         data = pkg.get("data", {}).get("data", {}) if isinstance(pkg.get("data"), dict) else {}

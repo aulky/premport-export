@@ -32,12 +32,12 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
         <CardHeader className="items-center justify-items-center gap-2 text-center">
           <Logo className="mb-1 size-16" />
           <CardTitle className="text-xl tracking-tight text-brand">{APP_NAME}</CardTitle>
-          <CardDescription>Masuk untuk melihat & mengekspor cookie.</CardDescription>
+          <CardDescription>Sign in to view and export cookies.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password dashboard</Label>
+              <Label htmlFor="password">Dashboard password</Label>
               <Input
                 id="password"
                 type="password"
@@ -53,7 +53,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
               </Alert>
             )}
             <Button type="submit" disabled={busy || !password}>
-              {busy ? "Memeriksa…" : "Masuk"}
+              {busy ? "Checking…" : "Sign in"}
             </Button>
           </form>
         </CardContent>

@@ -39,7 +39,7 @@ function SidebarContent({ path, navigate, onLogout }: { path: string; navigate: 
 
       <SidebarFooter>
         <SidebarItem icon={<LogOut />} onClick={onLogout}>
-          Keluar
+          Log out
         </SidebarItem>
       </SidebarFooter>
     </Sidebar>
@@ -96,7 +96,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <header className="flex items-center gap-3 border-b border-border bg-card/70 px-4 py-3 backdrop-blur lg:hidden">
-          <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen((o) => !o)} aria-label="Buka menu">
+          <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen((o) => !o)} aria-label="Open menu">
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>
           <Logo className="size-7 shrink-0" />

@@ -9,15 +9,15 @@ export function Pagination({ page, total, onChange }: { page: number; total: num
   if (total <= PAGE_SIZE) return null;
   const pages = pageCountOf(total);
   return (
-    <nav className="flex items-center justify-between gap-2" aria-label="Halaman">
+    <nav className="flex items-center justify-between gap-2" aria-label="Pages">
       <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => onChange(page - 1)}>
-        <ChevronLeft className="size-4" /> Sebelumnya
+        <ChevronLeft className="size-4" /> Previous
       </Button>
       <span className="text-center text-xs tabular-nums text-muted-foreground">
-        Halaman {page} dari {pages} · {total} entri
+        Page {page} of {pages} · {total} entries
       </span>
       <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => onChange(page + 1)}>
-        Berikutnya <ChevronRight className="size-4" />
+        Next <ChevronRight className="size-4" />
       </Button>
     </nav>
   );

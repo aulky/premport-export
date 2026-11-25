@@ -19,9 +19,9 @@ async function refresh(accountId: string) {
   console.log(`[worker] login ${acc.label} (${acc.email})${acc.id === config.accounts[0]?.id ? " [primary]" : ""}...`);
   const res = await refreshAccount(accountId);
   if (!res.ok) {
-    console.warn(`[worker] GAGAL ${acc.label}: ${res.error} -- akan dicoba lagi otomatis (backoff, tidak menghentikan akun lain)`);
+    console.warn(`[worker] FAILED ${acc.label}: ${res.error} -- will retry automatically (backoff, other accounts keep running)`);
   } else {
-    console.log(`[worker] OK ${acc.label}: ${res.cookieCount} cookies disimpan`);
+    console.log(`[worker] OK ${acc.label}: ${res.cookieCount} cookies saved`);
   }
 }
 
@@ -55,10 +55,10 @@ async function tick() {
         const t0 = Date.now();
         const alive = cookies.length ? await checkSessionAlive(cookies) : false;
         markStatus(creds.id, { status: alive ? "valid" : "expired" }, "checked");
-        logRun(creds.id, "check", alive, alive ? "sesi masih hidup" : "sesi terdeteksi expired", Date.now() - t0);
+        logRun(creds.id, "check", alive, alive ? "session still alive" : "session detected as expired", Date.now() - t0);
         if (!alive) await refresh(creds.id);
       } catch (e) {
-        console.error(`[worker] error tak terduga untuk ${creds.id}:`, e);
+        console.error(`[worker] unexpected error for ${creds.id}:`, e);
         markStatus(creds.id, { status: "error", last_error: (e as Error).message }, "checked");
       } finally {
         inFlight.delete(creds.id);
@@ -67,7 +67,7 @@ async function tick() {
   }
 }
 
-console.log(`[worker] start. akun aktif: ${config.accounts.length}, tick=${config.worker.tickSec}s`);
+console.log(`[worker] start. active accounts: ${config.accounts.length}, tick=${config.worker.tickSec}s`);
 const timer = setInterval(() => void tick(), config.worker.tickSec * 1000);
 void tick();
 

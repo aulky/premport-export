@@ -12,25 +12,25 @@ import { api, type AccountDto, type RunDto } from "@/lib/api";
 
 function timeAgo(ts: number) {
   const s = Math.floor(Date.now() / 1000) - ts;
-  if (s < 60) return `${s}d lalu`;
-  if (s < 3600) return `${Math.floor(s / 60)}m lalu`;
-  if (s < 86400) return `${Math.floor(s / 3600)}j lalu`;
-  return `${Math.floor(s / 86400)}h lalu`;
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
 const KIND_META: Record<string, { label: string; icon: typeof LogIn; tone: string }> = {
   login: { label: "Login / refresh", icon: LogIn, tone: "text-brand" },
-  check: { label: "Cek sesi", icon: ShieldCheck, tone: "text-muted-foreground" },
-  "apps-sync": { label: "Sinkron katalog app", icon: RefreshCcw, tone: "text-highlight" },
-  "item-fetch": { label: "Ambil cookie (Get)", icon: Cookie, tone: "text-success-foreground" },
+  check: { label: "Session check", icon: ShieldCheck, tone: "text-muted-foreground" },
+  "apps-sync": { label: "App catalog sync", icon: RefreshCcw, tone: "text-highlight" },
+  "item-fetch": { label: "Cookie fetch (Get)", icon: Cookie, tone: "text-success-foreground" },
 };
 
 const FILTERS: { key: string; label: string }[] = [
-  { key: "all", label: "Semua" },
-  { key: "item-fetch", label: "Ambil cookie" },
+  { key: "all", label: "All" },
+  { key: "item-fetch", label: "Cookie fetch" },
   { key: "login", label: "Login / refresh" },
-  { key: "apps-sync", label: "Sinkron app" },
-  { key: "check", label: "Cek sesi" },
+  { key: "apps-sync", label: "App sync" },
+  { key: "check", label: "Session check" },
 ];
 
 export function LogsPage() {
@@ -81,7 +81,7 @@ export function LogsPage() {
     <div className="min-h-full bg-background">
       <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
         <h1 className="font-mono text-lg font-semibold text-brand">Logs</h1>
-        <p className="text-sm text-muted-foreground">Riwayat akses dashboard, pengambilan cookie, dan aktivitas sistem.</p>
+        <p className="text-sm text-muted-foreground">Dashboard access history, cookie fetches, and system activity.</p>
       </header>
 
       <main className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
@@ -89,13 +89,13 @@ export function LogsPage() {
         <Tabs defaultValue="auth">
           <TabsList>
             <TabsTrigger value="auth">
-              <span className="hidden sm:inline">Riwayat</span> Login
+              Sign-ins
             </TabsTrigger>
             <TabsTrigger value="cookie">
-              <span className="hidden sm:inline">Pengambilan</span> Cookie
+              Cookies
             </TabsTrigger>
             <TabsTrigger value="system">
-              <span className="hidden sm:inline">Aktivitas</span> Sistem
+              System
             </TabsTrigger>
           </TabsList>
           <TabsContent value="auth">
@@ -110,7 +110,7 @@ export function LogsPage() {
                 <div className="flex flex-col gap-3">
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input className="pl-8" placeholder="Cari akun atau pesan log…" value={search} onChange={(e) => {
+                    <Input className="pl-8" placeholder="Search accounts or log messages…" value={search} onChange={(e) => {
                       setSearch(e.target.value);
                       setPage(1);
                     }} />
@@ -140,7 +140,7 @@ export function LogsPage() {
                     <Skeleton className="h-12 w-full" />
                   </div>
                 ) : filtered.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Tidak ada log yang cocok.</p>
+                  <p className="text-sm text-muted-foreground">No matching logs.</p>
                 ) : (
                   <ul className="flex flex-col gap-1">
                     {visible!.map((r) => {
@@ -153,7 +153,7 @@ export function LogsPage() {
                             <div className="flex flex-wrap items-center gap-1.5 text-sm">
                               <span className="font-medium text-foreground">{labelFor(r.account_id)}</span>
                               <Badge variant={r.ok ? "success" : "destructive"}>{meta.label}</Badge>
-                              {!r.ok && <span className="text-xs text-destructive">gagal</span>}
+                              {!r.ok && <span className="text-xs text-destructive">failed</span>}
                             </div>
                             <p className="mt-0.5 truncate text-xs text-muted-foreground" title={r.message ?? ""}>
                               {r.message}

@@ -150,7 +150,7 @@ def get_cookies(session, headers, item_id):
         return {"ok": False, "error": f"get-cookies bukan JSON: {r.text[:400]}"}
     raw_list = _find_cookie_list(payload)
     if raw_list is None:
-        return {"ok": False, "error": "format response tidak dikenali (struktur cookie tidak ketemu)"}
+        return {"ok": False, "error": "unrecognized response format (cookie structure not found)"}
     cookies = [c for c in (_normalize_cookie(rc) for rc in raw_list) if c is not None]
     return {"ok": True, "cookies": cookies}
 
@@ -160,7 +160,7 @@ def main():
     mode = req.get("mode")
     access_token = req.get("accessToken")
     if not access_token:
-        print(json.dumps({"ok": False, "error": "accessToken wajib diisi"}))
+        print(json.dumps({"ok": False, "error": "accessToken is required"}))
         return
 
     session = requests.Session(impersonate="chrome120")
@@ -174,11 +174,11 @@ def main():
     elif mode == "get-cookies":
         item_id = req.get("itemId")
         if not item_id:
-            result = {"ok": False, "error": "itemId wajib diisi"}
+            result = {"ok": False, "error": "itemId is required"}
         else:
             result = get_cookies(session, headers, item_id)
     else:
-        result = {"ok": False, "error": f"mode tidak dikenal: {mode!r}"}
+        result = {"ok": False, "error": f"unknown mode: {mode!r}"}
 
     print(json.dumps(result))
 

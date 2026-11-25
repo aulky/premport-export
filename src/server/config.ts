@@ -57,7 +57,7 @@ function loadAccounts(): AccountConfig[] {
       const password = env[`ACCOUNT_${n}_PASSWORD`] ?? "";
       return {
         id: `acc-${n}`,
-        label: str(`ACCOUNT_${n}_LABEL`) || email || `Akun ${n}`,
+        label: str(`ACCOUNT_${n}_LABEL`) || email || `Account ${n}`,
         email,
         password,
       };
@@ -91,20 +91,20 @@ export const config = {
 
 export function assertServerConfig() {
   const problems: string[] = [];
-  if (config.secretKey.length < 16) problems.push("SECRET_KEY minimal 16 karakter");
-  if (config.adminPassword.length < 8) problems.push("ADMIN_PASSWORD minimal 8 karakter");
+  if (config.secretKey.length < 16) problems.push("SECRET_KEY must be at least 16 characters");
+  if (config.adminPassword.length < 8) problems.push("ADMIN_PASSWORD must be at least 8 characters");
   if (problems.length) {
-    console.error("Konfigurasi .env belum benar:\n - " + problems.join("\n - "));
+    console.error("Invalid .env configuration:\n - " + problems.join("\n - "));
     process.exit(1);
   }
 }
 
 export function assertWorkerConfig() {
   const problems: string[] = [];
-  if (config.secretKey.length < 16) problems.push("SECRET_KEY minimal 16 karakter");
-  if (!config.accounts.length) problems.push("Belum ada ACCOUNT_n_EMAIL / ACCOUNT_n_PASSWORD");
+  if (config.secretKey.length < 16) problems.push("SECRET_KEY must be at least 16 characters");
+  if (!config.accounts.length) problems.push("No ACCOUNT_n_EMAIL / ACCOUNT_n_PASSWORD defined");
   if (problems.length) {
-    console.error("Konfigurasi .env belum benar:\n - " + problems.join("\n - "));
+    console.error("Invalid .env configuration:\n - " + problems.join("\n - "));
     process.exit(1);
   }
 }

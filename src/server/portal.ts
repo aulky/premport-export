@@ -21,14 +21,14 @@ function runPython<T>(script: string, input: unknown, timeoutMs = 45_000): Promi
     let stderr = "";
     const timer = setTimeout(() => {
       proc.kill("SIGKILL");
-      resolve({ ok: false, error: `Timeout menunggu ${script} (${timeoutMs / 1000}s)` });
+      resolve({ ok: false, error: `Timed out waiting for ${script} (${timeoutMs / 1000}s)` });
     }, timeoutMs);
 
     proc.stdout.on("data", (d) => (stdout += d));
     proc.stderr.on("data", (d) => (stderr += d));
     proc.on("error", (e) => {
       clearTimeout(timer);
-      resolve({ ok: false, error: `Gagal menjalankan Python (${PYTHON}): ${e.message}. Pastikan Python 3 + curl_cffi terinstal.` });
+      resolve({ ok: false, error: `Failed to run Python (${PYTHON}): ${e.message}. Make sure Python 3 + curl_cffi are installed.` });
     });
     proc.on("close", () => {
       clearTimeout(timer);
@@ -36,7 +36,7 @@ function runPython<T>(script: string, input: unknown, timeoutMs = 45_000): Promi
       try {
         resolve(JSON.parse(line));
       } catch {
-        resolve({ ok: false, error: `Output ${script} tidak valid. stderr: ${stderr.slice(0, 300)}` });
+        resolve({ ok: false, error: `Invalid output from ${script}. stderr: ${stderr.slice(0, 300)}` });
       }
     });
 

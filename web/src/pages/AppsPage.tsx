@@ -23,20 +23,20 @@ export function AppsPage({ accountId, onSelectAccount }: { accountId: string | n
     <div className="min-h-full bg-background">
       <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
         <h1 className="font-mono text-lg font-semibold text-brand">Apps</h1>
-        <p className="text-sm text-muted-foreground">Jelajahi katalog app & ambil cookie per item/slot akun.</p>
+        <p className="text-sm text-muted-foreground">Browse the app catalog and fetch cookies per item/account slot.</p>
       </header>
 
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Akun</label>
+          <label className="text-sm font-medium text-foreground">Account</label>
           {!accounts ? (
             <Skeleton className="h-10 w-full max-w-xs" />
           ) : accounts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Belum ada akun. Tambahkan dulu lewat .env.</p>
+            <p className="text-sm text-muted-foreground">No accounts yet. Add one in .env first.</p>
           ) : (
             <Select value={accountId ?? undefined} onValueChange={onSelectAccount}>
               <SelectTrigger className="max-w-xs">
-                <SelectValue placeholder="Pilih akun…" />
+                <SelectValue placeholder="Select an account…" />
               </SelectTrigger>
               <SelectContent>
                 {accounts.map((a) => (
