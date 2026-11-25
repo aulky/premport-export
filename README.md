@@ -213,6 +213,23 @@ per account is ever valid at a time**:
 - The admin can also force any specific user to sign out immediately (**Sign
   out** button next to that user), without resetting their password.
 
+### Account validity (subscriptions)
+
+Besides *how long a login lasts*, each user can also have an expiry date for
+the account itself — e.g. a 7-day subscription — after which that username and
+password stop working entirely, not just the current session:
+
+- Set it when adding a user (**Expires on**, optional) or any time after, with
+  the **Validity** button next to that user. Leave it empty / click **No
+  expiry** for an account that never expires.
+- Once that date passes, the account is marked **Inactive** on the Users page,
+  sign-in is refused with "This account has expired. Contact the admin.", and
+  any session that was already open for it is invalidated immediately — it
+  doesn't wait for that session to expire on its own.
+- Setting the date to the past deactivates the account right away (same effect
+  as "suspend now" without deleting it or changing its password); setting it
+  to the future (or clearing it) reactivates the account again.
+
 ## Adding or changing source accounts
 
 Add `ACCOUNT_N_LABEL` / `ACCOUNT_N_EMAIL` / `ACCOUNT_N_PASSWORD` lines to `.env`,
@@ -289,6 +306,9 @@ HTTPS, then submit the sitemap in Google Search Console and Bing Webmaster Tools
   [Session lifetime](#session-lifetime)) and single-use per account: a new sign-in
   always invalidates whatever session that account had before, and the admin can
   force any user to sign out on demand.
+- Users can also have an expiry date (see [Account validity](#account-validity-subscriptions)):
+  past it, sign-in is refused and any session already open for that account is
+  cut off immediately, not just at its next natural expiry.
 - `.env` holds account credentials — never commit it (it is in `.gitignore`).
 - Make sure automated sign-in and scraping comply with the terms of service of
   the site involved.
