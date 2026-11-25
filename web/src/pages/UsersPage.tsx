@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyRound, LogOut, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { Clock, KeyRound, LogOut, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,11 +99,16 @@ export function UsersPage() {
   const [editing, setEditing] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
+  // baris yang sedang diatur masa berlaku sesinya sendiri
+  const [editingSession, setEditingSession] = useState<number | null>(null);
+  const [sessionMinutes, setSessionMinutes] = useState("");
+  const [defaultTtlSec, setDefaultTtlSec] = useState<number | null>(null);
 
   const load = () => api.users().then(setUsers, (e: Error) => setMessage({ ok: false, text: e.message }));
 
   useEffect(() => {
     void load();
+    api.sessionSettings().then((s) => setDefaultTtlSec(s.ttlSec));
   }, []);
 
   /** true kalau berhasil. */
@@ -136,6 +141,20 @@ export function UsersPage() {
     if (await run(() => api.setUserPassword(u.id, newPassword), `Password changed for "${u.username}".`)) {
       setEditing(null);
       setNewPassword("");
+    }
+  }
+
+  async function saveSessionTtl(e: React.FormEvent, u: UserDto) {
+    e.preventDefault();
+    const sec = Math.round(Number(sessionMinutes) * 60);
+    if (await run(() => api.setUserSessionTtl(u.id, sec), `Session lifetime for "${u.username}" set to ${sessionMinutes} minute(s).`)) {
+      setEditingSession(null);
+    }
+  }
+
+  async function useDefaultSessionTtl(u: UserDto) {
+    if (await run(() => api.setUserSessionTtl(u.id, null), `Session lifetime for "${u.username}" reset to the default.`)) {
+      setEditingSession(null);
     }
   }
 
@@ -187,9 +206,26 @@ export function UsersPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold">{u.username}</div>
-                        <div className="text-xs text-muted-foreground">Last sign-in: {formatTime(u.lastLoginAt)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Last sign-in: {formatTime(u.lastLoginAt)}
+                          {" · "}
+                          Session:{" "}
+                          {u.sessionTtlSec != null
+                            ? `${minutesOf(u.sessionTtlSec)} min (custom)`
+                            : `default${defaultTtlSec != null ? ` (${minutesOf(defaultTtlSec)} min)` : ""}`}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingSession(editingSession === u.id ? null : u.id);
+                            setSessionMinutes(u.sessionTtlSec != null ? String(minutesOf(u.sessionTtlSec)) : "");
+                          }}
+                        >
+                          <Clock className="size-3.5" /> Session
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -242,6 +278,28 @@ export function UsersPage() {
                         <Button type="submit" size="sm" disabled={busy || !newPassword}>
                           Save
                         </Button>
+                      </form>
+                    )}
+                    {editingSession === u.id && (
+                      <form onSubmit={(e) => void saveSessionTtl(e, u)} className="flex flex-wrap items-center gap-2">
+                        <Input
+                          type="number"
+                          autoFocus
+                          min={1}
+                          step={1}
+                          className="w-28"
+                          placeholder="Minutes"
+                          value={sessionMinutes}
+                          onChange={(e) => setSessionMinutes(e.target.value)}
+                        />
+                        <Button type="submit" size="sm" disabled={busy || !sessionMinutes}>
+                          Save
+                        </Button>
+                        {u.sessionTtlSec != null && (
+                          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void useDefaultSessionTtl(u)}>
+                            Use default
+                          </Button>
+                        )}
                       </form>
                     )}
                   </li>

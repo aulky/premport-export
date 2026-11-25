@@ -20,6 +20,8 @@ export interface Principal {
   stamp: string;
   /** Naik setiap login baru / sign-out dipaksa admin -- lihat session_version di db.ts. */
   ver: number;
+  /** Masa berlaku sesi KHUSUS akun ini (detik), atau null untuk pakai default global. */
+  sessionTtlSec: number | null;
 }
 
 interface UserRow {
@@ -29,6 +31,7 @@ interface UserRow {
   created_at: number;
   last_login_at: number | null;
   session_version: number;
+  session_ttl_sec: number | null;
 }
 
 const derive = promisify(scrypt) as (password: string, salt: Buffer, length: number) => Promise<Buffer>;
@@ -59,6 +62,7 @@ const admin = (ver = adminVersion()): Principal => ({
   role: "admin",
   stamp: fingerprint(config.adminPassword),
   ver,
+  sessionTtlSec: null, // admin selalu pakai default global
 });
 
 const asPrincipal = (u: UserRow): Principal => ({
@@ -67,6 +71,7 @@ const asPrincipal = (u: UserRow): Principal => ({
   role: "user",
   stamp: fingerprint(u.password_hash),
   ver: u.session_version,
+  sessionTtlSec: u.session_ttl_sec,
 });
 
 export const normalizeUsername = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : "");
@@ -120,7 +125,9 @@ export function passwordProblem(password: unknown): string | null {
 
 export function listUsers() {
   return db
-    .prepare("SELECT id, username, created_at AS createdAt, last_login_at AS lastLoginAt FROM users ORDER BY username")
+    .prepare(
+      "SELECT id, username, created_at AS createdAt, last_login_at AS lastLoginAt, session_ttl_sec AS sessionTtlSec FROM users ORDER BY username",
+    )
     .all();
 }
 
@@ -139,4 +146,9 @@ export async function setPassword(id: number, password: string): Promise<boolean
 
 export function deleteUser(id: number): boolean {
   return db.prepare("DELETE FROM users WHERE id=?").run(id).changes === 1;
+}
+
+/** ttlSec null -> kembali pakai default global. Mengembalikan false kalau user tidak ada. */
+export function setUserSessionTtl(id: number, ttlSec: number | null): boolean {
+  return db.prepare("UPDATE users SET session_ttl_sec=? WHERE id=?").run(ttlSec, id).changes === 1;
 }

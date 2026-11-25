@@ -76,6 +76,8 @@ export interface UserDto {
   username: string;
   createdAt: number;
   lastLoginAt: number | null;
+  /** null = pakai default global (lihat SessionSettingsDto). */
+  sessionTtlSec: number | null;
 }
 
 export interface AccessLogDto {
@@ -135,6 +137,8 @@ export const api = {
     req<{ ok: true }>(`/api/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
   deleteUser: (id: number) => req<{ ok: true }>(`/api/users/${id}`, { method: "DELETE" }),
   signOutUser: (id: number) => req<{ ok: true }>(`/api/users/${id}/sign-out`, { method: "POST", body: "{}" }),
+  setUserSessionTtl: (id: number, ttlSec: number | null) =>
+    req<{ ttlSec: number | null }>(`/api/users/${id}/session`, { method: "PUT", body: JSON.stringify({ ttlSec }) }),
   sessionSettings: () => req<SessionSettingsDto>("/api/settings/session"),
   setSessionTtl: (ttlSec: number) =>
     req<{ ttlSec: number }>("/api/settings/session", { method: "PUT", body: JSON.stringify({ ttlSec }) }),

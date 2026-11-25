@@ -139,7 +139,11 @@ CREATE TABLE IF NOT EXISTS users (
   -- users.ts). Nilainya ditanam di dalam token sesi: begitu versi di sini naik,
   -- SEMUA token lama (termasuk yang masih "valid" secara tanda tangan & belum
   -- kedaluwarsa) langsung ditolak -- login baru otomatis membatalkan sesi lama.
-  session_version INTEGER NOT NULL DEFAULT 0
+  session_version INTEGER NOT NULL DEFAULT 0,
+  -- Masa berlaku sesi KHUSUS user ini (detik), dibuat admin per-user (lihat
+  -- /api/users/:id/session di server.ts). NULL = pakai nilai default global
+  -- (settings.ts / "Session security" di halaman Users).
+  session_ttl_sec INTEGER
 );
 `);
 
@@ -153,6 +157,7 @@ db.transaction(() => {
   if (!itemCols.some((c) => c.name === "last_creds_error")) db.exec("ALTER TABLE portal_items ADD COLUMN last_creds_error TEXT");
   const userCols = db.pragma("table_info(users)") as { name: string }[];
   if (!userCols.some((c) => c.name === "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
+  if (!userCols.some((c) => c.name === "session_ttl_sec")) db.exec("ALTER TABLE users ADD COLUMN session_ttl_sec INTEGER");
 }).immediate();
 
 export const now = () => Math.floor(Date.now() / 1000);

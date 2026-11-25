@@ -15,6 +15,7 @@ import {
   passwordProblem,
   principalFor,
   setPassword,
+  setUserSessionTtl,
   signOutUser,
   usernameProblem,
   type Principal,
@@ -112,7 +113,7 @@ app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { c
   }
   refundAttempt(req.ip);
   logAccess(req, "login", { ok: true, username: user.username });
-  const ttlSec = getSessionTtlSec();
+  const ttlSec = user.sessionTtlSec ?? getSessionTtlSec();
   const token = makeSession(user, ttlSec);
   reply.setCookie(COOKIE_NAME, token, {
     httpOnly: true,
@@ -187,6 +188,32 @@ app.delete<{ Params: { id: string } }>("/api/users/:id", async (req, reply) => {
     return { error: "User not found" };
   }
   return { ok: true };
+});
+
+/** Masa berlaku sesi KHUSUS user ini -- ttlSec null berarti kembali pakai default global. */
+app.put<{ Params: { id: string }; Body: { ttlSec?: unknown } }>("/api/users/:id/session", async (req, reply) => {
+  const id = Number(req.params.id);
+  const raw = req.body?.ttlSec;
+  let ttlSec: number | null;
+  if (raw === null) {
+    ttlSec = null;
+  } else {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < SESSION_TTL_MIN_SEC || n > SESSION_TTL_MAX_SEC) {
+      reply.code(400);
+      return { error: `Session lifetime must be between ${SESSION_TTL_MIN_SEC} and ${SESSION_TTL_MAX_SEC} seconds` };
+    }
+    ttlSec = n;
+  }
+  if (!setUserSessionTtl(id, ttlSec)) {
+    reply.code(404);
+    return { error: "User not found" };
+  }
+  logAccess(req, "settings-change", {
+    ok: true,
+    message: ttlSec === null ? `Session lifetime for user #${id} reset to default` : `Session lifetime for user #${id} set to ${ttlSec}s`,
+  });
+  return { ttlSec };
 });
 
 /** Membatalkan semua sesi aktif user ini seketika (tanpa harus mengganti password-nya). */
