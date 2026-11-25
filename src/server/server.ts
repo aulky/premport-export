@@ -15,6 +15,7 @@ import {
   passwordProblem,
   principalFor,
   setPassword,
+  setUserExpiry,
   setUserSessionTtl,
   signOutUser,
   usernameProblem,
@@ -76,6 +77,13 @@ await app.register(fastifyStatic, { root: uiDist });
 
 const COOKIE_NAME = "cv_session";
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** null/undefined -> tidak pernah kedaluwarsa. undefined (hasil) berarti nilainya tidak valid.
+ * Boleh berupa waktu yang sudah lewat (admin memang bisa langsung menonaktifkan akun). */
+function parseExpiresAt(raw: unknown): number | null | undefined {
+  if (raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+}
 /** Rute yang juga boleh diakses role "user": melihat data dan mengambil cookie. */
 const USER = { config: { access: "user" as const } };
 
@@ -105,12 +113,14 @@ app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { c
     reply.code(429).header("Retry-After", retryAfterSec);
     return { error: message };
   }
-  const user = username && typeof password === "string" ? await authenticate(username, password) : null;
-  if (!user) {
-    logAccess(req, "login", { ok: false, username, message: "Wrong username or password" });
-    reply.code(401);
-    return { error: "Wrong username or password" };
+  const auth = username && typeof password === "string" ? await authenticate(username, password) : ({ ok: false, reason: "invalid" } as const);
+  if (!auth.ok) {
+    const message = auth.reason === "expired" ? "This account has expired. Contact the admin." : "Wrong username or password";
+    logAccess(req, "login", { ok: false, username, message });
+    reply.code(auth.reason === "expired" ? 403 : 401);
+    return { error: message };
   }
+  const user = auth.principal;
   refundAttempt(req.ip);
   logAccess(req, "login", { ok: true, username: user.username });
   const ttlSec = user.sessionTtlSec ?? getSessionTtlSec();
@@ -154,14 +164,19 @@ app.put<{ Body: { ttlSec?: unknown } }>("/api/settings/session", async (req, rep
 
 app.get("/api/users", async () => listUsers());
 
-app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/users", async (req, reply) => {
+app.post<{ Body: { username?: unknown; password?: unknown; expiresAt?: unknown } }>("/api/users", async (req, reply) => {
   const username = normalizeUsername(req.body?.username);
   const problem = usernameProblem(username) ?? passwordProblem(req.body?.password);
   if (problem) {
     reply.code(400);
     return { error: problem };
   }
-  if (!(await createUser(username, req.body.password as string))) {
+  const expiresAt = parseExpiresAt(req.body?.expiresAt);
+  if (expiresAt === undefined) {
+    reply.code(400);
+    return { error: "Invalid expiry date" };
+  }
+  if (!(await createUser(username, req.body.password as string, expiresAt))) {
     reply.code(409);
     return { error: "Username already exists" };
   }
@@ -188,6 +203,22 @@ app.delete<{ Params: { id: string } }>("/api/users/:id", async (req, reply) => {
     return { error: "User not found" };
   }
   return { ok: true };
+});
+
+/** Tanggal akun ini berhenti berlaku (mis. langganan N hari) -- expiresAt null berarti tidak
+ * pernah kedaluwarsa. Ditegakkan baik di login (authenticate()) maupun sesi yang sedang
+ * berjalan (principalFor()), jadi begitu lewat, user ini langsung tidak bisa login/dipakai lagi. */
+app.put<{ Params: { id: string }; Body: { expiresAt?: unknown } }>("/api/users/:id/expiry", async (req, reply) => {
+  const expiresAt = parseExpiresAt(req.body?.expiresAt);
+  if (expiresAt === undefined) {
+    reply.code(400);
+    return { error: "Invalid expiry date" };
+  }
+  if (!setUserExpiry(Number(req.params.id), expiresAt)) {
+    reply.code(404);
+    return { error: "User not found" };
+  }
+  return { expiresAt };
 });
 
 /** Masa berlaku sesi KHUSUS user ini -- ttlSec null berarti kembali pakai default global. */

@@ -143,7 +143,13 @@ CREATE TABLE IF NOT EXISTS users (
   -- Masa berlaku sesi KHUSUS user ini (detik), dibuat admin per-user (lihat
   -- /api/users/:id/session di server.ts). NULL = pakai nilai default global
   -- (settings.ts / "Session security" di halaman Users).
-  session_ttl_sec INTEGER
+  session_ttl_sec INTEGER,
+  -- Tanggal akun ini berhenti berlaku (unix seconds), mis. langganan 7 hari
+  -- (lihat /api/users/:id/expiry). NULL = tidak pernah kedaluwarsa. Setelah
+  -- lewat, username/password ini ditolak login (authenticate()) DAN sesi yang
+  -- sedang berjalan langsung tidak valid lagi (principalFor()) -- ditandai
+  -- "Inactive" di UI (listUsers()).
+  expires_at INTEGER
 );
 `);
 
@@ -158,6 +164,7 @@ db.transaction(() => {
   const userCols = db.pragma("table_info(users)") as { name: string }[];
   if (!userCols.some((c) => c.name === "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
   if (!userCols.some((c) => c.name === "session_ttl_sec")) db.exec("ALTER TABLE users ADD COLUMN session_ttl_sec INTEGER");
+  if (!userCols.some((c) => c.name === "expires_at")) db.exec("ALTER TABLE users ADD COLUMN expires_at INTEGER");
 }).immediate();
 
 export const now = () => Math.floor(Date.now() / 1000);

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Clock, KeyRound, LogOut, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { CalendarClock, Clock, KeyRound, LogOut, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,7 +12,18 @@ import { api, type SessionSettingsDto, type UserDto } from "@/lib/api";
 const formatTime = (ts: number | null) =>
   ts ? new Date(ts * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "never";
 
+const formatDate = (ts: number) => new Date(ts * 1000).toLocaleDateString("en-GB", { dateStyle: "medium" });
+
 const minutesOf = (sec: number) => Math.round(sec / 60);
+
+/** input type="date" (YYYY-MM-DD, waktu lokal) -> akhir hari itu (unix seconds). */
+const endOfDayToUnix = (dateStr: string): number => Math.floor(new Date(`${dateStr}T23:59:59`).getTime() / 1000);
+/** unix seconds -> input type="date" value, di zona waktu lokal (bukan UTC) supaya tidak geser hari. */
+function unixToDateInput(sec: number): string {
+  const d = new Date(sec * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 /** Sesi login & tombol sign-out darurat -- lihat /api/settings/session dan /api/users/:id/sign-out di server. */
 function SessionSecurityCard() {
@@ -93,6 +105,7 @@ export function UsersPage() {
   const [users, setUsers] = useState<UserDto[] | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [expiresOn, setExpiresOn] = useState(""); // tanggal opsional saat membuat user baru
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   // baris yang sedang diganti passwordnya / menunggu konfirmasi hapus
@@ -103,6 +116,9 @@ export function UsersPage() {
   const [editingSession, setEditingSession] = useState<number | null>(null);
   const [sessionMinutes, setSessionMinutes] = useState("");
   const [defaultTtlSec, setDefaultTtlSec] = useState<number | null>(null);
+  // baris yang sedang diatur tanggal kedaluwarsa akunnya (langganan)
+  const [editingExpiry, setEditingExpiry] = useState<number | null>(null);
+  const [expiryDate, setExpiryDate] = useState("");
 
   const load = () => api.users().then(setUsers, (e: Error) => setMessage({ ok: false, text: e.message }));
 
@@ -130,9 +146,12 @@ export function UsersPage() {
 
   async function addUser(e: React.FormEvent) {
     e.preventDefault();
-    if (await run(() => api.createUser(username, password), `User "${username.trim().toLowerCase()}" added.`)) {
+    const expiresAt = expiresOn ? endOfDayToUnix(expiresOn) : null;
+    const label = expiresAt ? ` (expires ${formatDate(expiresAt)})` : "";
+    if (await run(() => api.createUser(username, password, expiresAt), `User "${username.trim().toLowerCase()}" added${label}.`)) {
       setUsername("");
       setPassword("");
+      setExpiresOn("");
     }
   }
 
@@ -158,6 +177,20 @@ export function UsersPage() {
     }
   }
 
+  async function saveExpiry(e: React.FormEvent, u: UserDto) {
+    e.preventDefault();
+    const expiresAt = endOfDayToUnix(expiryDate);
+    if (await run(() => api.setUserExpiry(u.id, expiresAt), `"${u.username}" is now valid through ${formatDate(expiresAt)}.`)) {
+      setEditingExpiry(null);
+    }
+  }
+
+  async function clearExpiry(u: UserDto) {
+    if (await run(() => api.setUserExpiry(u.id, null), `"${u.username}" no longer expires.`)) {
+      setEditingExpiry(null);
+    }
+  }
+
   return (
     <div className="min-h-full bg-background">
       <PageHeader title="Users" subtitle="Create and manage dashboard accounts." />
@@ -171,7 +204,7 @@ export function UsersPage() {
             <CardDescription>Users can view accounts and fetch or download app cookies. They cannot add or manage anything.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={(e) => void addUser(e)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <form onSubmit={(e) => void addUser(e)} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
               <div className="flex flex-1 flex-col gap-1.5">
                 <Label htmlFor="new-username">Username</Label>
                 <Input id="new-username" autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
@@ -179,6 +212,10 @@ export function UsersPage() {
               <div className="flex flex-1 flex-col gap-1.5">
                 <Label htmlFor="new-password">Password (min. 8 characters)</Label>
                 <Input id="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-expires">Expires on (optional)</Label>
+                <Input id="new-expires" type="date" className="w-40" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
               </div>
               <Button type="submit" disabled={busy || !username || !password}>
                 <UserPlus className="size-4" /> Add user
@@ -205,9 +242,14 @@ export function UsersPage() {
                   <li key={u.id} className="flex flex-col gap-2 rounded-xl border border-border/60 px-3 py-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold">{u.username}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="truncate text-sm font-semibold">{u.username}</div>
+                          <Badge variant={u.active ? "success" : "warning"}>{u.active ? "Active" : "Inactive"}</Badge>
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           Last sign-in: {formatTime(u.lastLoginAt)}
+                          {" · "}
+                          Valid: {u.expiresAt != null ? `until ${formatDate(u.expiresAt)}` : "no expiry"}
                           {" · "}
                           Session:{" "}
                           {u.sessionTtlSec != null
@@ -216,6 +258,16 @@ export function UsersPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingExpiry(editingExpiry === u.id ? null : u.id);
+                            setExpiryDate(u.expiresAt != null ? unixToDateInput(u.expiresAt) : "");
+                          }}
+                        >
+                          <CalendarClock className="size-3.5" /> Validity
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -278,6 +330,19 @@ export function UsersPage() {
                         <Button type="submit" size="sm" disabled={busy || !newPassword}>
                           Save
                         </Button>
+                      </form>
+                    )}
+                    {editingExpiry === u.id && (
+                      <form onSubmit={(e) => void saveExpiry(e, u)} className="flex flex-wrap items-center gap-2">
+                        <Input type="date" autoFocus className="w-40" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+                        <Button type="submit" size="sm" disabled={busy || !expiryDate}>
+                          Save
+                        </Button>
+                        {u.expiresAt != null && (
+                          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void clearExpiry(u)}>
+                            No expiry
+                          </Button>
+                        )}
                       </form>
                     )}
                     {editingSession === u.id && (

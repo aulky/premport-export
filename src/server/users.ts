@@ -32,7 +32,12 @@ interface UserRow {
   last_login_at: number | null;
   session_version: number;
   session_ttl_sec: number | null;
+  expires_at: number | null;
 }
+
+export type AuthResult = { ok: true; principal: Principal } | { ok: false; reason: "invalid" | "expired" };
+
+const isExpired = (expiresAt: number | null, t = now()) => expiresAt != null && expiresAt <= t;
 
 const derive = promisify(scrypt) as (password: string, salt: Buffer, length: number) => Promise<Buffer>;
 
@@ -80,27 +85,32 @@ export const normalizeUsername = (value: unknown) => (typeof value === "string" 
  * Setiap login sukses menaikkan session_version-nya SENDIRI, sehingga token
  * sesi lama (di tab/perangkat lain) langsung tidak valid lagi -- hanya satu
  * sesi yang aktif per akun kapan saja, dan setiap login baru memaksa yang lama logout.
+ * Akun yang sudah lewat expires_at-nya (mis. langganan 7 hari habis) ditolak
+ * walau username/password-nya benar -- lihat juga setUserExpiry().
  */
-export async function authenticate(username: string, password: string): Promise<Principal | null> {
+export async function authenticate(username: string, password: string): Promise<AuthResult> {
   if (username === ADMIN_USERNAME) {
-    if (!safeEqual(password, config.adminPassword)) return null;
+    if (!safeEqual(password, config.adminPassword)) return { ok: false, reason: "invalid" };
     const ver = adminVersion() + 1;
     setKv(ADMIN_VER_KEY, String(ver));
-    return admin(ver);
+    return { ok: true, principal: admin(ver) };
   }
   const row = db.prepare("SELECT * FROM users WHERE username=?").get(username) as UserRow | undefined;
   const ok = await matches(password, row?.password_hash ?? (await dummyHash));
-  if (!row || !ok) return null;
+  if (!row || !ok) return { ok: false, reason: "invalid" };
+  if (isExpired(row.expires_at)) return { ok: false, reason: "expired" };
   const ver = row.session_version + 1;
   db.prepare("UPDATE users SET last_login_at=?, session_version=? WHERE id=?").run(now(), ver, row.id);
-  return asPrincipal({ ...row, session_version: ver });
+  return { ok: true, principal: asPrincipal({ ...row, session_version: ver }) };
 }
 
 /** Pemilik sesi, atau null kalau user sudah dihapus, passwordnya sudah diganti,
- * atau sesi ini sudah digantikan oleh login yang lebih baru (ver tidak cocok). */
+ * akunnya sudah kedaluwarsa, atau sesi ini sudah digantikan oleh login yang
+ * lebih baru (ver tidak cocok). */
 export function principalFor(session: { uid: number; stamp: string; ver: number } | null): Principal | null {
   if (!session) return null;
   const row = session.uid === ADMIN_ID ? undefined : byId(session.uid);
+  if (row && isExpired(row.expires_at)) return null;
   const who = session.uid === ADMIN_ID ? admin() : row ? asPrincipal(row) : null;
   return who && who.stamp === session.stamp && who.ver === session.ver ? who : null;
 }
@@ -124,19 +134,21 @@ export function passwordProblem(password: unknown): string | null {
 }
 
 export function listUsers() {
-  return db
+  const rows = db
     .prepare(
-      "SELECT id, username, created_at AS createdAt, last_login_at AS lastLoginAt, session_ttl_sec AS sessionTtlSec FROM users ORDER BY username",
+      "SELECT id, username, created_at AS createdAt, last_login_at AS lastLoginAt, session_ttl_sec AS sessionTtlSec, expires_at AS expiresAt FROM users ORDER BY username",
     )
-    .all();
+    .all() as { expiresAt: number | null }[];
+  const t = now();
+  return rows.map((r) => ({ ...r, active: !isExpired(r.expiresAt, t) }));
 }
 
-/** false kalau username sudah dipakai. */
-export async function createUser(username: string, password: string): Promise<boolean> {
+/** false kalau username sudah dipakai. expiresAt null = tidak pernah kedaluwarsa. */
+export async function createUser(username: string, password: string, expiresAt: number | null = null): Promise<boolean> {
   const hash = await hashPassword(password);
   const res = db
-    .prepare("INSERT INTO users(username, password_hash, created_at) VALUES (?,?,?) ON CONFLICT(username) DO NOTHING")
-    .run(username, hash, now());
+    .prepare("INSERT INTO users(username, password_hash, created_at, expires_at) VALUES (?,?,?,?) ON CONFLICT(username) DO NOTHING")
+    .run(username, hash, now(), expiresAt);
   return res.changes === 1;
 }
 
@@ -151,4 +163,10 @@ export function deleteUser(id: number): boolean {
 /** ttlSec null -> kembali pakai default global. Mengembalikan false kalau user tidak ada. */
 export function setUserSessionTtl(id: number, ttlSec: number | null): boolean {
   return db.prepare("UPDATE users SET session_ttl_sec=? WHERE id=?").run(ttlSec, id).changes === 1;
+}
+
+/** expiresAt null = tidak pernah kedaluwarsa. Boleh berupa waktu yang sudah lewat, supaya
+ * admin juga bisa pakai ini untuk langsung menonaktifkan akun tanpa menghapusnya. */
+export function setUserExpiry(id: number, expiresAt: number | null): boolean {
+  return db.prepare("UPDATE users SET expires_at=? WHERE id=?").run(expiresAt, id).changes === 1;
 }

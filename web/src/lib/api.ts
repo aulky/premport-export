@@ -76,6 +76,10 @@ export interface UserDto {
   username: string;
   createdAt: number;
   lastLoginAt: number | null;
+  /** null = tidak pernah kedaluwarsa (unix seconds). */
+  expiresAt: number | null;
+  /** turunan dari expiresAt di server -- false berarti username/password ini sudah ditolak login. */
+  active: boolean;
   /** null = pakai default global (lihat SessionSettingsDto). */
   sessionTtlSec: number | null;
 }
@@ -131,12 +135,14 @@ export const api = {
     req<MeDto>("/api/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   me: () => req<MeDto>("/api/me"),
   users: () => req<UserDto[]>("/api/users"),
-  createUser: (username: string, password: string) =>
-    req<{ ok: true }>("/api/users", { method: "POST", body: JSON.stringify({ username, password }) }),
+  createUser: (username: string, password: string, expiresAt: number | null = null) =>
+    req<{ ok: true }>("/api/users", { method: "POST", body: JSON.stringify({ username, password, expiresAt }) }),
   setUserPassword: (id: number, password: string) =>
     req<{ ok: true }>(`/api/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
   deleteUser: (id: number) => req<{ ok: true }>(`/api/users/${id}`, { method: "DELETE" }),
   signOutUser: (id: number) => req<{ ok: true }>(`/api/users/${id}/sign-out`, { method: "POST", body: "{}" }),
+  setUserExpiry: (id: number, expiresAt: number | null) =>
+    req<{ expiresAt: number | null }>(`/api/users/${id}/expiry`, { method: "PUT", body: JSON.stringify({ expiresAt }) }),
   setUserSessionTtl: (id: number, ttlSec: number | null) =>
     req<{ ttlSec: number | null }>(`/api/users/${id}/session`, { method: "PUT", body: JSON.stringify({ ttlSec }) }),
   sessionSettings: () => req<SessionSettingsDto>("/api/settings/session"),
