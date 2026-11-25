@@ -12,6 +12,8 @@ import { plural } from "@/lib/utils";
 const EVENT_LABEL: Record<AccessLogDto["event"], string> = {
   login: "Sign-in",
   logout: "Sign-out",
+  "settings-change": "Security setting changed",
+  "force-logout": "Forced sign-out",
   "cookie-get": "Get cookie",
   "cookie-download": "Download cookie",
   "session-download": "Download session cookie",

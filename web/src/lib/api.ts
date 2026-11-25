@@ -61,6 +61,14 @@ export interface RunDto {
 export interface MeDto {
   username: string;
   role: "admin" | "user";
+  /** unix seconds -- dipakai untuk menjadwalkan auto-logout tepat saat sesi berakhir. */
+  expiresAt: number | null;
+}
+
+export interface SessionSettingsDto {
+  ttlSec: number;
+  minSec: number;
+  maxSec: number;
 }
 
 export interface UserDto {
@@ -73,7 +81,16 @@ export interface UserDto {
 export interface AccessLogDto {
   id: number;
   at: number;
-  event: "login" | "logout" | "cookie-get" | "cookie-download" | "session-download" | "creds-get" | "creds-view";
+  event:
+    | "login"
+    | "logout"
+    | "settings-change"
+    | "force-logout"
+    | "cookie-get"
+    | "cookie-download"
+    | "session-download"
+    | "creds-get"
+    | "creds-view";
   ok: number;
   ip: string;
   user_agent: string | null;
@@ -117,6 +134,10 @@ export const api = {
   setUserPassword: (id: number, password: string) =>
     req<{ ok: true }>(`/api/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
   deleteUser: (id: number) => req<{ ok: true }>(`/api/users/${id}`, { method: "DELETE" }),
+  signOutUser: (id: number) => req<{ ok: true }>(`/api/users/${id}/sign-out`, { method: "POST", body: "{}" }),
+  sessionSettings: () => req<SessionSettingsDto>("/api/settings/session"),
+  setSessionTtl: (ttlSec: number) =>
+    req<{ ttlSec: number }>("/api/settings/session", { method: "PUT", body: JSON.stringify({ ttlSec }) }),
   logout: () => req<{ ok: true }>("/api/logout", { method: "POST" }),
   accounts: () => req<AccountDto[]>("/api/accounts"),
   account: (accountId: string) => req<AccountDto>(`/api/accounts/${accountId}`),

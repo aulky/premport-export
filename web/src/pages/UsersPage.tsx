@@ -1,15 +1,93 @@
 import { useEffect, useState } from "react";
-import { KeyRound, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, LogOut, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
-import { api, type UserDto } from "@/lib/api";
+import { api, type SessionSettingsDto, type UserDto } from "@/lib/api";
 
 const formatTime = (ts: number | null) =>
   ts ? new Date(ts * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "never";
+
+const minutesOf = (sec: number) => Math.round(sec / 60);
+
+/** Sesi login & tombol sign-out darurat -- lihat /api/settings/session dan /api/users/:id/sign-out di server. */
+function SessionSecurityCard() {
+  const [settings, setSettings] = useState<SessionSettingsDto | null>(null);
+  const [minutes, setMinutes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    api.sessionSettings().then(
+      (s) => {
+        setSettings(s);
+        setMinutes(String(minutesOf(s.ttlSec)));
+      },
+      (e: Error) => setMessage({ ok: false, text: e.message }),
+    );
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { ttlSec } = await api.setSessionTtl(Math.round(Number(minutes) * 60));
+      setSettings((s) => (s ? { ...s, ttlSec } : s));
+      setMinutes(String(minutesOf(ttlSec)));
+      setMessage({ ok: true, text: `New logins now expire after ${minutesOf(ttlSec)} minute(s). Already-signed-in sessions keep their old expiry.` });
+    } catch (e) {
+      setMessage({ ok: false, text: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!settings) return <Skeleton className="h-24 w-full" />;
+  const minMinutes = Math.max(1, Math.ceil(settings.minSec / 60));
+  const maxMinutes = Math.floor(settings.maxSec / 60);
+
+  return (
+    <Card className="shadow-panel">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="size-4 text-muted-foreground" /> Session security
+        </CardTitle>
+        <CardDescription>
+          Every login (admin included) gets a short-lived, signed session that expires on its own -- and signing in again anywhere
+          immediately invalidates the previous session, even if it hasn't expired yet.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <form onSubmit={(e) => void save(e)} className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="session-ttl">Session lifetime (minutes)</Label>
+            <Input
+              id="session-ttl"
+              type="number"
+              min={minMinutes}
+              max={maxMinutes}
+              step={1}
+              className="w-40"
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={busy || !minutes}>
+            Save
+          </Button>
+          <p className="basis-full text-xs text-muted-foreground">
+            Allowed range: {minMinutes}-{maxMinutes} minutes. Applies to new sign-ins only.
+          </p>
+        </form>
+        {message && <p className={`text-sm ${message.ok ? "text-success-foreground" : "text-destructive"}`}>{message.text}</p>}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function UsersPage() {
   const [users, setUsers] = useState<UserDto[] | null>(null);
@@ -66,6 +144,8 @@ export function UsersPage() {
       <PageHeader title="Users" subtitle="Create and manage dashboard accounts." />
 
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
+        <SessionSecurityCard />
+
         <Card className="shadow-panel">
           <CardHeader>
             <CardTitle>Add user</CardTitle>
@@ -110,6 +190,14 @@ export function UsersPage() {
                         <div className="text-xs text-muted-foreground">Last sign-in: {formatTime(u.lastLoginAt)}</div>
                       </div>
                       <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void run(() => api.signOutUser(u.id), `"${u.username}" was signed out of every session.`)}
+                        >
+                          <LogOut className="size-3.5" /> Sign out
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

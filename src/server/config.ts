@@ -86,7 +86,11 @@ export const config = {
   dbPath: str("DB_PATH", "./data/cookies.db"),
   secretKey: str("SECRET_KEY"),
   adminPassword: env.ADMIN_PASSWORD ?? "",
-  sessionTtlSec: num(env.SESSION_TTL_SEC, 60 * 60 * 12),
+  // Sesi login dashboard pendek secara sengaja (lihat settings.ts untuk batas
+  // yang boleh diatur admin dari UI): token ditandatangani & membawa "exp"
+  // sendiri, jadi walau cookie-nya disalin, ia otomatis tidak berlaku lagi
+  // setelah ini -- dan login baru membatalkan sesi lama (lihat session_version).
+  sessionTtlSec: num(env.SESSION_TTL_SEC, 15 * 60),
   secureCookie: bool("COOKIE_SECURE", false),
   // Proxy yang header X-Forwarded-For-nya dipercaya untuk menentukan IP asli.
   trustProxy: str("TRUST_PROXY", "loopback"),

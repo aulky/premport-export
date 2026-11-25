@@ -15,9 +15,11 @@ import {
   passwordProblem,
   principalFor,
   setPassword,
+  signOutUser,
   usernameProblem,
   type Principal,
 } from "./users.js";
+import { SESSION_TTL_MAX_SEC, SESSION_TTL_MIN_SEC, getSessionTtlSec, setSessionTtlSec } from "./settings.js";
 import {
   listAccounts,
   listPortalApps,
@@ -45,6 +47,8 @@ import { renderAbout, renderIndex, renderLlms, renderRobots, renderSitemap, site
 declare module "fastify" {
   interface FastifyRequest {
     user: Principal | null;
+    /** exp (unix seconds) sesi yang sedang dipakai, buat frontend menjadwalkan auto-logout. */
+    sessionExpiresAt: number | null;
   }
   interface FastifyContextConfig {
     /** Tanpa nilai ini sebuah rute /api HANYA untuk admin. */
@@ -75,6 +79,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const USER = { config: { access: "user" as const } };
 
 app.decorateRequest("user", null);
+app.decorateRequest("sessionExpiresAt", null);
 
 app.addHook("onRequest", async (req, reply) => {
   // Cek pola rute yang BENAR-BENAR dicocokkan router, bukan req.url mentah: router
@@ -82,7 +87,9 @@ app.addHook("onRequest", async (req, reply) => {
   if (!req.routeOptions.url?.startsWith("/api/")) return;
   const { access } = req.routeOptions.config;
   if (access === "public") return;
-  req.user = principalFor(verifySession(req.cookies[COOKIE_NAME]));
+  const session = verifySession(req.cookies[COOKIE_NAME]);
+  req.user = principalFor(session);
+  req.sessionExpiresAt = req.user ? (session!.exp ?? null) : null;
   if (!req.user) return reply.code(401).send({ error: "Not signed in" });
   if (access !== "user" && req.user.role !== "admin") return reply.code(403).send({ error: "Admin access required" });
 });
@@ -105,18 +112,42 @@ app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { c
   }
   refundAttempt(req.ip);
   logAccess(req, "login", { ok: true, username: user.username });
-  const token = makeSession(user, config.sessionTtlSec);
+  const ttlSec = getSessionTtlSec();
+  const token = makeSession(user, ttlSec);
   reply.setCookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: config.secureCookie,
     path: "/",
-    maxAge: config.sessionTtlSec,
+    maxAge: ttlSec,
   });
   return { username: user.username, role: user.role };
 });
 
-app.get("/api/me", USER, async (req) => ({ username: req.user!.username, role: req.user!.role }));
+app.get("/api/me", USER, async (req) => ({
+  username: req.user!.username,
+  role: req.user!.role,
+  expiresAt: req.sessionExpiresAt,
+}));
+
+// ---------- keamanan sesi (khusus admin) ----------
+
+app.get("/api/settings/session", async () => ({
+  ttlSec: getSessionTtlSec(),
+  minSec: SESSION_TTL_MIN_SEC,
+  maxSec: SESSION_TTL_MAX_SEC,
+}));
+
+app.put<{ Body: { ttlSec?: unknown } }>("/api/settings/session", async (req, reply) => {
+  const raw = Number(req.body?.ttlSec);
+  if (!Number.isFinite(raw) || raw < SESSION_TTL_MIN_SEC || raw > SESSION_TTL_MAX_SEC) {
+    reply.code(400);
+    return { error: `Session lifetime must be between ${SESSION_TTL_MIN_SEC} and ${SESSION_TTL_MAX_SEC} seconds` };
+  }
+  const ttlSec = setSessionTtlSec(raw);
+  logAccess(req, "settings-change", { ok: true, message: `Session lifetime changed to ${ttlSec}s (new logins only)` });
+  return { ttlSec };
+});
 
 // ---------- manajemen user (khusus admin) ----------
 
@@ -155,6 +186,17 @@ app.delete<{ Params: { id: string } }>("/api/users/:id", async (req, reply) => {
     reply.code(404);
     return { error: "User not found" };
   }
+  return { ok: true };
+});
+
+/** Membatalkan semua sesi aktif user ini seketika (tanpa harus mengganti password-nya). */
+app.post<{ Params: { id: string } }>("/api/users/:id/sign-out", async (req, reply) => {
+  const id = Number(req.params.id);
+  if (!signOutUser(id)) {
+    reply.code(404);
+    return { error: "User not found" };
+  }
+  logAccess(req, "force-logout", { ok: true, message: `Forced sign-out of user #${id}` });
   return { ok: true };
 });
 

@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api, type MeDto } from "@/lib/api";
 import { APP_NAME, Logo } from "@/components/Logo";
 
-export function Login({ onSuccess }: { onSuccess: (me: MeDto) => void }) {
+export function Login({ onSuccess, notice }: { onSuccess: (me: MeDto) => void; notice?: string | null }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,6 +35,11 @@ export function Login({ onSuccess }: { onSuccess: (me: MeDto) => void }) {
           <CardDescription>Sign in to view and export cookies.</CardDescription>
         </CardHeader>
         <CardContent>
+          {notice && (
+            <Alert variant="warning" className="mb-4">
+              <AlertDescription>{notice}</AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="username">Username</Label>

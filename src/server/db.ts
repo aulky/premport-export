@@ -134,7 +134,12 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  last_login_at INTEGER
+  last_login_at INTEGER,
+  -- Naik setiap kali user ini login, atau saat admin memaksa sign-out (lihat
+  -- users.ts). Nilainya ditanam di dalam token sesi: begitu versi di sini naik,
+  -- SEMUA token lama (termasuk yang masih "valid" secara tanda tangan & belum
+  -- kedaluwarsa) langsung ditolak -- login baru otomatis membatalkan sesi lama.
+  session_version INTEGER NOT NULL DEFAULT 0
 );
 `);
 
@@ -146,6 +151,8 @@ db.transaction(() => {
   const itemCols = db.pragma("table_info(portal_items)") as { name: string }[];
   if (!itemCols.some((c) => c.name === "last_creds_fetched_at")) db.exec("ALTER TABLE portal_items ADD COLUMN last_creds_fetched_at INTEGER");
   if (!itemCols.some((c) => c.name === "last_creds_error")) db.exec("ALTER TABLE portal_items ADD COLUMN last_creds_error TEXT");
+  const userCols = db.pragma("table_info(users)") as { name: string }[];
+  if (!userCols.some((c) => c.name === "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
 }).immediate();
 
 export const now = () => Math.floor(Date.now() / 1000);

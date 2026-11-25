@@ -25,13 +25,35 @@ export function App() {
   const theme = useThemeState();
   const [me, setMe] = useState<MeDto | null | undefined>(undefined); // undefined = masih dicek
   const [path, setPath] = useState(() => window.location.pathname);
+  // Pesan di halaman login setelah sesi berakhir sendiri (bukan logout manual).
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
   useEffect(() => {
     api.me().then(setMe, () => setMe(null));
-    const onUnauthorized = () => setMe(null);
+    const onUnauthorized = () => {
+      setSessionNotice((prev) => prev ?? "Your session has expired. Please sign in again.");
+      setMe(null);
+    };
     window.addEventListener("unauthorized", onUnauthorized);
     return () => window.removeEventListener("unauthorized", onUnauthorized);
   }, []);
+
+  // Auto-logout tepat saat sesi berakhir, tanpa menunggu pengguna mengklik apa pun
+  // dulu (lihat SESSION_TTL_SEC/"/api/settings/session" di server).
+  useEffect(() => {
+    if (!me?.expiresAt) return;
+    const msLeft = me.expiresAt * 1000 - Date.now();
+    const expire = () => {
+      setSessionNotice("Your session has expired. Please sign in again.");
+      setMe(null);
+    };
+    if (msLeft <= 0) {
+      expire();
+      return;
+    }
+    const t = window.setTimeout(expire, msLeft);
+    return () => window.clearTimeout(t);
+  }, [me?.expiresAt]);
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname);
@@ -45,6 +67,7 @@ export function App() {
   }
 
   function handleLogout() {
+    setSessionNotice(null);
     setMe(null);
     navigate("/");
   }
@@ -54,7 +77,9 @@ export function App() {
     return (
       <ThemeContext.Provider value={theme}>
         <Login
+          notice={sessionNotice}
           onSuccess={(who) => {
+            setSessionNotice(null);
             navigate("/");
             setMe(who);
           }}

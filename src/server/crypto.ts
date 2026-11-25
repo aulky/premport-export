@@ -23,14 +23,19 @@ const sign = (data: string) => createHmac("sha256", "sess:" + config.secretKey).
 /** Sidik jari rahasia (butuh SECRET_KEY), untuk menandai versi password di dalam sesi. */
 export const fingerprint = (value: string) => sign("stamp:" + value).slice(0, 22);
 
-export function makeSession(user: { id: number; stamp: string }, ttlSec: number): string {
+export function makeSession(user: { id: number; stamp: string; ver: number }, ttlSec: number): string {
   const exp = Math.floor(Date.now() / 1000) + ttlSec;
-  const body = Buffer.from(JSON.stringify({ uid: user.id, stamp: user.stamp, exp })).toString("base64url");
+  const body = Buffer.from(JSON.stringify({ uid: user.id, stamp: user.stamp, ver: user.ver, exp })).toString("base64url");
   return `${body}.${sign(body)}`;
 }
 
-/** Isi sesi kalau tanda tangannya sah dan belum kedaluwarsa. */
-export function verifySession(token: string | undefined): { uid: number; stamp: string } | null {
+/**
+ * Isi sesi kalau tanda tangannya sah dan belum kedaluwarsa. `ver` dicocokkan
+ * oleh principalFor() terhadap versi TERKINI user itu -- begitu dia login lagi
+ * (di tab/perangkat lain) versi naik dan sesi ini otomatis tidak berlaku lagi,
+ * walau tanda tangan & exp-nya masih sah.
+ */
+export function verifySession(token: string | undefined): { uid: number; stamp: string; ver: number; exp: number } | null {
   if (!token) return null;
   const i = token.lastIndexOf(".");
   if (i < 0) return null;
@@ -38,7 +43,10 @@ export function verifySession(token: string | undefined): { uid: number; stamp: 
   if (!safeEqual(token.slice(i + 1), sign(body))) return null;
   try {
     const data = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-    return data.exp > Date.now() / 1000 ? { uid: data.uid, stamp: data.stamp } : null;
+    if (!(data.exp > Date.now() / 1000)) return null;
+    // ver tidak ada di token lama (sebelum fitur ini) -> dianggap versi 0, sama
+    // seperti versi awal user baru, jadi tidak memaksa logout massal saat upgrade.
+    return { uid: data.uid, stamp: data.stamp, ver: Number(data.ver) || 0, exp: data.exp };
   } catch {
     return null; // format sesi versi lama -> harus login ulang
   }

@@ -2,7 +2,7 @@ import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { config } from "./config.js";
 import { fingerprint, safeEqual } from "./crypto.js";
-import { db, now } from "./db.js";
+import { db, getKv, now, setKv } from "./db.js";
 
 /**
  * Akun dashboard. Satu admin dari .env (username "admin" + ADMIN_PASSWORD) dan
@@ -18,6 +18,8 @@ export interface Principal {
   role: Role;
   /** Berubah kalau password berubah, sehingga sesi lama otomatis tidak berlaku. */
   stamp: string;
+  /** Naik setiap login baru / sign-out dipaksa admin -- lihat session_version di db.ts. */
+  ver: number;
 }
 
 interface UserRow {
@@ -26,6 +28,7 @@ interface UserRow {
   password_hash: string;
   created_at: number;
   last_login_at: number | null;
+  session_version: number;
 }
 
 const derive = promisify(scrypt) as (password: string, salt: Buffer, length: number) => Promise<Buffer>;
@@ -45,11 +48,17 @@ const dummyHash = hashPassword(randomBytes(16).toString("hex"));
 
 const byId = (id: number) => db.prepare("SELECT * FROM users WHERE id=?").get(id) as UserRow | undefined;
 
-const admin = (): Principal => ({
+// Admin tidak punya baris di tabel users (lihat ADMIN_ID), jadi versi sesinya
+// disimpan di kv -- sama perannya dengan kolom session_version user biasa.
+const ADMIN_VER_KEY = "admin_session_version";
+const adminVersion = () => Number(getKv(ADMIN_VER_KEY) ?? 0) || 0;
+
+const admin = (ver = adminVersion()): Principal => ({
   id: ADMIN_ID,
   username: ADMIN_USERNAME,
   role: "admin",
   stamp: fingerprint(config.adminPassword),
+  ver,
 });
 
 const asPrincipal = (u: UserRow): Principal => ({
@@ -57,25 +66,45 @@ const asPrincipal = (u: UserRow): Principal => ({
   username: u.username,
   role: "user",
   stamp: fingerprint(u.password_hash),
+  ver: u.session_version,
 });
 
 export const normalizeUsername = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
+/**
+ * Setiap login sukses menaikkan session_version-nya SENDIRI, sehingga token
+ * sesi lama (di tab/perangkat lain) langsung tidak valid lagi -- hanya satu
+ * sesi yang aktif per akun kapan saja, dan setiap login baru memaksa yang lama logout.
+ */
 export async function authenticate(username: string, password: string): Promise<Principal | null> {
-  if (username === ADMIN_USERNAME) return safeEqual(password, config.adminPassword) ? admin() : null;
+  if (username === ADMIN_USERNAME) {
+    if (!safeEqual(password, config.adminPassword)) return null;
+    const ver = adminVersion() + 1;
+    setKv(ADMIN_VER_KEY, String(ver));
+    return admin(ver);
+  }
   const row = db.prepare("SELECT * FROM users WHERE username=?").get(username) as UserRow | undefined;
   const ok = await matches(password, row?.password_hash ?? (await dummyHash));
   if (!row || !ok) return null;
-  db.prepare("UPDATE users SET last_login_at=? WHERE id=?").run(now(), row.id);
-  return asPrincipal(row);
+  const ver = row.session_version + 1;
+  db.prepare("UPDATE users SET last_login_at=?, session_version=? WHERE id=?").run(now(), ver, row.id);
+  return asPrincipal({ ...row, session_version: ver });
 }
 
-/** Pemilik sesi, atau null kalau user sudah dihapus / passwordnya sudah diganti. */
-export function principalFor(session: { uid: number; stamp: string } | null): Principal | null {
+/** Pemilik sesi, atau null kalau user sudah dihapus, passwordnya sudah diganti,
+ * atau sesi ini sudah digantikan oleh login yang lebih baru (ver tidak cocok). */
+export function principalFor(session: { uid: number; stamp: string; ver: number } | null): Principal | null {
   if (!session) return null;
   const row = session.uid === ADMIN_ID ? undefined : byId(session.uid);
   const who = session.uid === ADMIN_ID ? admin() : row ? asPrincipal(row) : null;
-  return who && who.stamp === session.stamp ? who : null;
+  return who && who.stamp === session.stamp && who.ver === session.ver ? who : null;
+}
+
+/** Admin bisa memaksa user tertentu logout dari semua sesinya seketika, tanpa perlu menunggu
+ * token-nya kedaluwarsa atau mengganti passwordnya. Mengembalikan false kalau user tidak ada. */
+export function signOutUser(id: number): boolean {
+  const res = db.prepare("UPDATE users SET session_version=session_version+1 WHERE id=?").run(id);
+  return res.changes === 1;
 }
 
 export function usernameProblem(username: string): string | null {
