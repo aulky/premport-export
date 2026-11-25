@@ -65,7 +65,22 @@ function loadAccounts(): AccountConfig[] {
     .filter((a) => a.email && a.password);
 }
 
+/** Hanya origin http(s) yang diterima; nilai lain diabaikan dengan peringatan. */
+function publicOrigin(value: string): string {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.origin;
+  } catch {
+    // ditangani di bawah
+  }
+  console.warn("PUBLIC_URL ignored: use a full address such as https://example.com");
+  return "";
+}
+
 export const config = {
+  // Alamat publik dashboard untuk pratinjau tautan, sitemap, dan canonical URL.
+  publicUrl: publicOrigin(str("PUBLIC_URL")),
   port: num(env.PORT, 3000),
   host: str("HOST", "0.0.0.0"),
   dbPath: str("DB_PATH", "./data/cookies.db"),

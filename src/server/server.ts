@@ -1,6 +1,7 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { assertServerConfig, config } from "./config.js";
@@ -33,6 +34,7 @@ import { fetchItemCookiesLive } from "./portal.js";
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
+import { renderAbout, renderIndex, renderLlms, renderRobots, renderSitemap, siteUrl } from "./seo.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -340,12 +342,42 @@ app.get("/api/access-logs", async (req) => {
   return listAccessLogs(q.type === "cookie" ? "cookie" : "auth", page, typeof q.ip === "string" ? q.ip.trim() : "");
 });
 
+// ---------- halaman publik & SEO ----------
+
+/** index.html dibaca per request, supaya build UI baru langsung terpakai. */
+async function sendIndex(req: FastifyRequest, reply: FastifyReply, path: string | null) {
+  const html = await readFile(join(uiDist, "index.html"), "utf8");
+  return reply
+    .type("text/html; charset=utf-8")
+    .header("Cache-Control", "no-cache")
+    .send(renderIndex(html, siteUrl(req), path));
+}
+
+app.get("/", (req, reply) => sendIndex(req, reply, "/"));
+app.get("/index.html", (req, reply) => sendIndex(req, reply, "/"));
+
+const publicPages = [
+  ["/about", "text/html; charset=utf-8", renderAbout],
+  ["/robots.txt", "text/plain; charset=utf-8", renderRobots],
+  ["/sitemap.xml", "application/xml; charset=utf-8", renderSitemap],
+  ["/llms.txt", "text/plain; charset=utf-8", renderLlms],
+] as const;
+for (const [url, type, render] of publicPages) {
+  app.get(url, async (req, reply) => reply.type(type).send(render(siteUrl(req))));
+}
+
 app.setNotFoundHandler((req, reply) => {
   if (req.raw.url?.startsWith("/api/")) {
     reply.code(404).send({ error: "Not found" });
     return;
   }
-  reply.sendFile("index.html");
+  // Nama file yang tidak ada (gambar, skrip, dsb) harus 404, bukan halaman aplikasi.
+  if (/\.[a-z0-9]{1,8}$/i.test(req.url.split("?")[0]!)) {
+    reply.code(404).type("text/plain").send("Not found");
+    return;
+  }
+  // Halaman dalam aplikasi (/logs, /users, dst): jangan diindeks.
+  return sendIndex(req, reply, null);
 });
 
 app

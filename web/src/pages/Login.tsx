@@ -60,6 +60,11 @@ export function Login({ onSuccess }: { onSuccess: (me: MeDto) => void }) {
               {busy ? "Checking…" : "Sign in"}
             </Button>
           </form>
+          <p className="mt-4 text-center text-sm">
+            <a href="/about" className="text-brand underline-offset-4 hover:underline">
+              About this tool
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>
