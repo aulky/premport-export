@@ -6,6 +6,9 @@ import { AppsPage } from "@/pages/AppsPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { TutorialPage } from "@/pages/TutorialPage";
 import { AppShell } from "@/components/AppShell";
+import { UsersPage } from "@/pages/UsersPage";
+import { api, type MeDto } from "@/lib/api";
+import { MeContext } from "@/lib/me";
 
 function parseAccountId(pathname: string): string | null {
   const m = /^\/accounts\/([^/]+)\/?$/.exec(pathname);
@@ -18,13 +21,14 @@ function parseAppsAccountId(pathname: string): string | null {
 }
 
 export function App() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [me, setMe] = useState<MeDto | null | undefined>(undefined); // undefined = masih dicek
   const [path, setPath] = useState(() => window.location.pathname);
 
   useEffect(() => {
-    fetch("/api/accounts", { credentials: "include" })
-      .then((r) => setAuthed(r.ok))
-      .catch(() => setAuthed(false));
+    api.me().then(setMe, () => setMe(null));
+    const onUnauthorized = () => setMe(null);
+    window.addEventListener("unauthorized", onUnauthorized);
+    return () => window.removeEventListener("unauthorized", onUnauthorized);
   }, []);
 
   useEffect(() => {
@@ -39,12 +43,22 @@ export function App() {
   }
 
   function handleLogout() {
-    setAuthed(false);
+    setMe(null);
     navigate("/");
   }
 
-  if (authed === null) return null;
-  if (!authed) return <Login onSuccess={() => setAuthed(true)} />;
+  if (me === undefined) return null;
+  if (!me) {
+    return (
+      <Login
+        onSuccess={(who) => {
+          navigate("/");
+          setMe(who);
+        }}
+      />
+    );
+  }
+  const isAdmin = me.role === "admin";
 
   const accountId = parseAccountId(path);
   let page: React.ReactNode;
@@ -53,8 +67,10 @@ export function App() {
   } else if (path === "/apps" || path.startsWith("/apps/")) {
     const appsAccountId = parseAppsAccountId(path);
     page = <AppsPage accountId={appsAccountId} onSelectAccount={(id) => navigate(`/apps/${encodeURIComponent(id)}`)} />;
-  } else if (path === "/logs") {
+  } else if (path === "/logs" && isAdmin) {
     page = <LogsPage />;
+  } else if (path === "/users" && isAdmin) {
+    page = <UsersPage />;
   } else if (path === "/tutorial") {
     page = <TutorialPage />;
   } else {
@@ -62,8 +78,10 @@ export function App() {
   }
 
   return (
-    <AppShell path={path} navigate={navigate} onLogout={handleLogout}>
-      {page}
-    </AppShell>
+    <MeContext.Provider value={me}>
+      <AppShell path={path} navigate={navigate} onLogout={handleLogout}>
+        {page}
+      </AppShell>
+    </MeContext.Provider>
   );
 }

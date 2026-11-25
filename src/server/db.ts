@@ -112,7 +112,24 @@ CREATE TABLE IF NOT EXISTS access_logs (
   message TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_access_event ON access_logs(event, id DESC);
+
+-- Akun dashboard dengan role "user" (admin berasal dari .env, lihat users.ts).
+-- AUTOINCREMENT: id user yang dihapus tidak dipakai ulang oleh sesi lama.
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_login_at INTEGER
+);
 `);
+
+// Kolom tambahan untuk database buatan versi sebelumnya. IMMEDIATE karena web dan
+// worker bisa start bersamaan.
+db.transaction(() => {
+  const columns = db.pragma("table_info(access_logs)") as { name: string }[];
+  if (!columns.some((c) => c.name === "username")) db.exec("ALTER TABLE access_logs ADD COLUMN username TEXT");
+}).immediate();
 
 export const now = () => Math.floor(Date.now() / 1000);
 

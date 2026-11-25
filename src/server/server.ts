@@ -4,7 +4,19 @@ import fastifyCookie from "@fastify/cookie";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { assertServerConfig, config } from "./config.js";
-import { makeSession, safeEqual, verifySession } from "./crypto.js";
+import { makeSession, verifySession } from "./crypto.js";
+import {
+  authenticate,
+  createUser,
+  deleteUser,
+  listUsers,
+  normalizeUsername,
+  passwordProblem,
+  principalFor,
+  setPassword,
+  usernameProblem,
+  type Principal,
+} from "./users.js";
 import {
   listAccounts,
   listPortalApps,
@@ -21,6 +33,16 @@ import { fetchItemCookiesLive } from "./portal.js";
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    user: Principal | null;
+  }
+  interface FastifyContextConfig {
+    /** Tanpa nilai ini sebuah rute /api HANYA untuk admin. */
+    access?: "public" | "user";
+  }
+}
 
 assertServerConfig();
 syncAccountsFromEnv();
@@ -40,27 +62,33 @@ await app.register(fastifyCookie);
 await app.register(fastifyStatic, { root: uiDist });
 
 const COOKIE_NAME = "cv_session";
+/** Rute yang juga boleh diakses role "user": melihat data dan mengambil cookie. */
+const USER = { config: { access: "user" as const } };
+
+app.decorateRequest("user", null);
 
 app.addHook("onRequest", async (req, reply) => {
   // Cek pola rute yang BENAR-BENAR dicocokkan router, bukan req.url mentah: router
   // men-decode URL, jadi "/%61pi/accounts" tetap masuk ke "/api/accounts".
-  const route = req.routeOptions.url;
-  if (!route?.startsWith("/api/") || route === "/api/login") return;
-  const token = req.cookies[COOKIE_NAME];
-  if (!verifySession(token)) {
-    reply.code(401).send({ error: "Not signed in" });
-  }
+  if (!req.routeOptions.url?.startsWith("/api/")) return;
+  const { access } = req.routeOptions.config;
+  if (access === "public") return;
+  req.user = principalFor(verifySession(req.cookies[COOKIE_NAME]));
+  if (!req.user) return reply.code(401).send({ error: "Not signed in" });
+  if (access !== "user" && req.user.role !== "admin") return reply.code(403).send({ error: "Admin access required" });
 });
 
-app.post<{ Body: { password: string } }>("/api/login", async (req, reply) => {
-  const { password } = req.body ?? ({} as { password: string });
-  if (typeof password !== "string" || !safeEqual(password, config.adminPassword)) {
-    logAccess(req, "login", { ok: false, message: "Wrong password" });
+app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { config: { access: "public" } }, async (req, reply) => {
+  const username = normalizeUsername(req.body?.username);
+  const password = req.body?.password;
+  const user = username && typeof password === "string" ? await authenticate(username, password) : null;
+  if (!user) {
+    logAccess(req, "login", { ok: false, username, message: "Wrong username or password" });
     reply.code(401);
-    return { error: "Wrong password" };
+    return { error: "Wrong username or password" };
   }
-  logAccess(req, "login", { ok: true });
-  const token = makeSession(config.sessionTtlSec);
+  logAccess(req, "login", { ok: true, username: user.username });
+  const token = makeSession(user, config.sessionTtlSec);
   reply.setCookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -68,16 +96,58 @@ app.post<{ Body: { password: string } }>("/api/login", async (req, reply) => {
     path: "/",
     maxAge: config.sessionTtlSec,
   });
+  return { username: user.username, role: user.role };
+});
+
+app.get("/api/me", USER, async (req) => ({ username: req.user!.username, role: req.user!.role }));
+
+// ---------- manajemen user (khusus admin) ----------
+
+app.get("/api/users", async () => listUsers());
+
+app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/users", async (req, reply) => {
+  const username = normalizeUsername(req.body?.username);
+  const problem = usernameProblem(username) ?? passwordProblem(req.body?.password);
+  if (problem) {
+    reply.code(400);
+    return { error: problem };
+  }
+  if (!(await createUser(username, req.body.password as string))) {
+    reply.code(409);
+    return { error: "Username already exists" };
+  }
+  reply.code(201);
   return { ok: true };
 });
 
-app.post("/api/logout", async (req, reply) => {
+app.put<{ Params: { id: string }; Body: { password?: unknown } }>("/api/users/:id/password", async (req, reply) => {
+  const problem = passwordProblem(req.body?.password);
+  if (problem) {
+    reply.code(400);
+    return { error: problem };
+  }
+  if (!(await setPassword(Number(req.params.id), req.body.password as string))) {
+    reply.code(404);
+    return { error: "User not found" };
+  }
+  return { ok: true };
+});
+
+app.delete<{ Params: { id: string } }>("/api/users/:id", async (req, reply) => {
+  if (!deleteUser(Number(req.params.id))) {
+    reply.code(404);
+    return { error: "User not found" };
+  }
+  return { ok: true };
+});
+
+app.post("/api/logout", USER, async (req, reply) => {
   reply.clearCookie(COOKIE_NAME, { path: "/" });
   logAccess(req, "logout", { ok: true });
   return { ok: true };
 });
 
-app.get("/api/accounts", async () => {
+app.get("/api/accounts", USER, async () => {
   const accounts = listAccounts();
   return accounts.map((a, i) => ({
     id: a.id,
@@ -93,7 +163,7 @@ app.get("/api/accounts", async () => {
   }));
 });
 
-app.get<{ Params: { id: string } }>("/api/accounts/:id", async (req, reply) => {
+app.get<{ Params: { id: string } }>("/api/accounts/:id", USER, async (req, reply) => {
   const accounts = listAccounts();
   const idx = accounts.findIndex((a) => a.id === req.params.id);
   if (idx === -1) {
@@ -116,7 +186,7 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id", async (req, reply) => {
 });
 
 /** Katalog app (Netflix, Canva, dst). Disinkron otomatis oleh worker, murni metadata. */
-app.get<{ Params: { id: string } }>("/api/accounts/:id/apps", async (req) => {
+app.get<{ Params: { id: string } }>("/api/accounts/:id/apps", USER, async (req) => {
   const apps = listPortalApps(req.params.id);
   return apps.map((a) => ({
     appId: a.app_id,
@@ -132,7 +202,7 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id/apps", async (req) => {
 });
 
 /** Item/slot akun di dalam 1 app. */
-app.get<{ Params: { id: string; appId: string } }>("/api/accounts/:id/apps/:appId/items", async (req) => {
+app.get<{ Params: { id: string; appId: string } }>("/api/accounts/:id/apps/:appId/items", USER, async (req) => {
   return listPortalItems(req.params.id, req.params.appId).map((it) => ({
     itemId: it.item_id,
     itemName: it.item_name,
@@ -195,7 +265,7 @@ app.post("/api/accounts/refresh-all", async () => {
  * harian di sisi portal untuk klaim item baru; endpoint ini hanya dipanggil
  * sekali per klik pengguna.
  */
-app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:itemId/fetch", async (req, reply) => {
+app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:itemId/fetch", USER, async (req, reply) => {
   const { id: accountId, itemId } = req.params;
   const t0 = Date.now();
   const item = getPortalItem(accountId, itemId);
@@ -231,7 +301,7 @@ app.post<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:i
 });
 
 /** Export format Cookie-Editor JSON untuk 1 item/app tujuan, siap import ke ekstensi. */
-app.get<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:itemId/cookies.json", async (req, reply) => {
+app.get<{ Params: { id: string; itemId: string } }>("/api/accounts/:id/items/:itemId/cookies.json", USER, async (req, reply) => {
   const cookies = latestItemCookies(req.params.id, req.params.itemId);
   if (!cookies) {
     reply.code(404);

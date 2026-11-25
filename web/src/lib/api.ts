@@ -42,6 +42,18 @@ export interface RunDto {
   at: number;
 }
 
+export interface MeDto {
+  username: string;
+  role: "admin" | "user";
+}
+
+export interface UserDto {
+  id: number;
+  username: string;
+  createdAt: number;
+  lastLoginAt: number | null;
+}
+
 export interface AccessLogDto {
   id: number;
   at: number;
@@ -49,6 +61,7 @@ export interface AccessLogDto {
   ok: number;
   ip: string;
   user_agent: string | null;
+  username: string | null;
   account_id: string | null;
   account_label: string | null;
   app_name: string | null;
@@ -69,6 +82,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include",
   });
   if (!res.ok) {
+    // sesi habis / user dihapus di tengah jalan -> kembali ke halaman login
+    if (res.status === 401 && path !== "/api/login") window.dispatchEvent(new Event("unauthorized"));
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
@@ -77,7 +92,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  login: (password: string) => req<{ ok: true }>("/api/login", { method: "POST", body: JSON.stringify({ password }) }),
+  login: (username: string, password: string) =>
+    req<MeDto>("/api/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  me: () => req<MeDto>("/api/me"),
+  users: () => req<UserDto[]>("/api/users"),
+  createUser: (username: string, password: string) =>
+    req<{ ok: true }>("/api/users", { method: "POST", body: JSON.stringify({ username, password }) }),
+  setUserPassword: (id: number, password: string) =>
+    req<{ ok: true }>(`/api/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
+  deleteUser: (id: number) => req<{ ok: true }>(`/api/users/${id}`, { method: "DELETE" }),
   logout: () => req<{ ok: true }>("/api/logout", { method: "POST" }),
   accounts: () => req<AccountDto[]>("/api/accounts"),
   account: (accountId: string) => req<AccountDto>(`/api/accounts/${accountId}`),

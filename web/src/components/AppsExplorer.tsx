@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, Download, RefreshCw, Search } from "lucide-react";
 import { api, type AppDto, type ItemDto } from "@/lib/api";
+import { plural } from "@/lib/utils";
 
 function timeAgo(ts: number | null) {
   if (!ts) return "never";
@@ -136,8 +137,8 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                     <div className="truncate text-sm font-medium">{app.name}</div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       {app.category && <span className="capitalize">{app.category}</span>}
-                      <span>·</span>
-                      <span>{app.itemCount} item</span>
+                      {app.category && <span>·</span>}
+                      <span>{plural(app.itemCount, "item")}</span>
                     </div>
                   </div>
                   <Badge variant={app.targetType === "cookies" ? "success" : "secondary"}>
@@ -178,7 +179,7 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{item.itemName ?? item.itemId}</div>
                     <div className="text-xs text-muted-foreground">
-                      {item.lastCookieCount != null ? `${item.lastCookieCount} cookie · ${timeAgo(item.lastFetchedAt)}` : "never fetched"}
+                      {item.lastCookieCount != null ? `${plural(item.lastCookieCount, "cookie")} · ${timeAgo(item.lastFetchedAt)}` : "never fetched"}
                       {item.lastError && <span className="text-destructive"> · {item.lastError}</span>}
                     </div>
                   </div>

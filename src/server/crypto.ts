@@ -20,19 +20,28 @@ export function decrypt(payload: string): string {
 
 const sign = (data: string) => createHmac("sha256", "sess:" + config.secretKey).update(data).digest("base64url");
 
-export function makeSession(ttlSec: number): string {
+/** Sidik jari rahasia (butuh SECRET_KEY), untuk menandai versi password di dalam sesi. */
+export const fingerprint = (value: string) => sign("stamp:" + value).slice(0, 22);
+
+export function makeSession(user: { id: number; stamp: string }, ttlSec: number): string {
   const exp = Math.floor(Date.now() / 1000) + ttlSec;
-  const body = `${exp}.${randomBytes(8).toString("hex")}`;
+  const body = Buffer.from(JSON.stringify({ uid: user.id, stamp: user.stamp, exp })).toString("base64url");
   return `${body}.${sign(body)}`;
 }
 
-export function verifySession(token: string | undefined): boolean {
-  if (!token) return false;
+/** Isi sesi kalau tanda tangannya sah dan belum kedaluwarsa. */
+export function verifySession(token: string | undefined): { uid: number; stamp: string } | null {
+  if (!token) return null;
   const i = token.lastIndexOf(".");
-  if (i < 0) return false;
+  if (i < 0) return null;
   const body = token.slice(0, i);
-  if (!safeEqual(token.slice(i + 1), sign(body))) return false;
-  return Number(body.split(".")[0]) > Date.now() / 1000;
+  if (!safeEqual(token.slice(i + 1), sign(body))) return null;
+  try {
+    const data = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    return data.exp > Date.now() / 1000 ? { uid: data.uid, stamp: data.stamp } : null;
+  } catch {
+    return null; // format sesi versi lama -> harus login ulang
+  }
 }
 
 export function safeEqual(a: string, b: string): boolean {

@@ -9,6 +9,8 @@ import { RefreshCw, Search } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
+import { useIsAdmin } from "@/lib/me";
+import { plural } from "@/lib/utils";
 
 function timeAgo(ts: number | null) {
   if (!ts) return "—";
@@ -29,6 +31,7 @@ function untilText(ts: number | null) {
 }
 
 export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: string) => void; onOpenLogs: () => void }) {
+  const isAdmin = useIsAdmin();
   const [accounts, setAccounts] = useState<AccountDto[] | null>(null);
   const [runs, setRuns] = useState<RunDto[]>([]);
   const [search, setSearch] = useState("");
@@ -38,7 +41,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
 
   async function load() {
     try {
-      const [a, r] = await Promise.all([api.accounts(), api.runs(30)]);
+      const [a, r] = await Promise.all([api.accounts(), isAdmin ? api.runs(30) : Promise.resolve([])]);
       setAccounts(a);
       setRuns(r);
     } catch (e) {
@@ -100,10 +103,12 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
         title="Dashboard"
         subtitle="Account and cookie status, always up to date"
         actions={
+          isAdmin && (
           <Button variant="secondary" disabled={refreshingAll} onClick={() => void refreshAll()} aria-label="Refresh All" title="Refresh All">
             <RefreshCw className={`size-4 ${refreshingAll ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">{refreshingAll ? "Refreshing all…" : "Refresh All"}</span>
           </Button>
+          )
         }
       />
 
@@ -134,8 +139,8 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
               </div>
             ) : accounts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No accounts yet. Add <code>ACCOUNT_1_EMAIL</code> / <code>ACCOUNT_1_PASSWORD</code> to{" "}
-                <code>.env</code>, then restart the worker.
+                No accounts yet. An admin has to add <code>ACCOUNT_1_EMAIL</code> / <code>ACCOUNT_1_PASSWORD</code> to{" "}
+                <code>.env</code> and restart the worker.
               </p>
             ) : filteredAccounts.length === 0 ? (
               <p className="text-sm text-muted-foreground">No accounts match your search.</p>
@@ -148,7 +153,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
                     <TableHead>Checked</TableHead>
                     <TableHead>Session ends</TableHead>
                     <TableHead>Apps</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -173,9 +178,10 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
                       <TableCell className="text-sm text-muted-foreground">{untilText(a.expiresAt)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={() => onOpenAccount(a.id)}>
-                          {a.appCount} app
+                          {plural(a.appCount, "app")}
                         </Button>
                       </TableCell>
+                      {isAdmin && (
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Button size="sm" variant="outline" disabled={refreshingId === a.id} onClick={() => void refreshOne(a.id)}>
@@ -191,6 +197,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
                           </Button>
                         </div>
                       </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -199,6 +206,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
           </CardContent>
         </Card>
 
+        {isAdmin && (
         <Card className="shadow-panel">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
@@ -228,6 +236,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
             </ul>
           </CardContent>
         </Card>
+        )}
       </main>
 
       {error && <p className="px-6 pb-4 text-sm text-destructive">{error}</p>}

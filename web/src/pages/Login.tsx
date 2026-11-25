@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { api } from "@/lib/api";
+import { api, type MeDto } from "@/lib/api";
 import { APP_NAME, Logo } from "@/components/Logo";
 
-export function Login({ onSuccess }: { onSuccess: () => void }) {
+export function Login({ onSuccess }: { onSuccess: (me: MeDto) => void }) {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +18,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await api.login(password);
-      onSuccess();
+      onSuccess(await api.login(username, password));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -37,11 +37,15 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
         <CardContent>
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Dashboard password</Label>
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
-                autoFocus
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -52,7 +56,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <Button type="submit" disabled={busy || !password}>
+            <Button type="submit" disabled={busy || !username || !password}>
               {busy ? "Checking…" : "Sign in"}
             </Button>
           </form>

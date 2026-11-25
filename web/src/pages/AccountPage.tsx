@@ -6,8 +6,10 @@ import { api, type AccountDto } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AppsExplorer } from "@/components/AppsExplorer";
 import { PageHeader } from "@/components/PageHeader";
+import { useIsAdmin } from "@/lib/me";
 
 export function AccountPage({ accountId, onBack }: { accountId: string; onBack: () => void }) {
+  const isAdmin = useIsAdmin();
   const [account, setAccount] = useState<AccountDto | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
         }
         subtitle={account?.email}
         actions={
+          isAdmin && (
           <>
             <Button
               variant="secondary"
@@ -75,6 +78,7 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
               <span className="hidden sm:inline">{refreshing ? "Signing in…" : "Refresh"}</span>
             </Button>
           </>
+          )
         }
       />
 

@@ -48,7 +48,7 @@ export async function refreshAccount(
     if (appsRes.ok) {
       syncPortalApps(accountId, appsRes.apps);
       const totalItems = appsRes.apps.reduce((n, a) => n + a.items.length, 0);
-      logRun(accountId, "apps-sync", true, `${appsRes.apps.length} app, ${totalItems} item`, Date.now() - t1);
+      logRun(accountId, "apps-sync", true, `${appsRes.apps.length} apps, ${totalItems} items`, Date.now() - t1);
     } else {
       logRun(accountId, "apps-sync", false, appsRes.error, Date.now() - t1);
     }

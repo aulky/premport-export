@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, X } from "lucide-react";
 import { api, type AccessLogDto } from "@/lib/api";
 import { Pagination, pageCountOf } from "@/components/Pagination";
+import { plural } from "@/lib/utils";
 
 const EVENT_LABEL: Record<AccessLogDto["event"], string> = {
   login: "Sign-in",
@@ -107,6 +108,7 @@ export function AccessLog({ type, ip, onIpChange }: { type: "auth" | "cookie"; i
                   >
                     {r.ip}
                   </button>
+                  {r.username && <span className="font-semibold">{r.username}</span>}
                   <Badge variant={r.ok ? "success" : "destructive"}>
                     {EVENT_LABEL[r.event] ?? r.event}
                     {r.ok ? "" : " failed"}
@@ -119,7 +121,7 @@ export function AccessLog({ type, ip, onIpChange }: { type: "auth" | "cookie"; i
                     <span className="text-muted-foreground">
                       {" · "}
                       {r.account_label ?? r.account_id}
-                      {r.cookie_count !== null && ` · ${r.cookie_count} cookie`}
+                      {r.cookie_count !== null && ` · ${plural(r.cookie_count, "cookie")}`}
                     </span>
                   </p>
                 )}

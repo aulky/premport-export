@@ -2,7 +2,7 @@ import { isIP } from "node:net";
 import type { FastifyRequest } from "fastify";
 import { db, now } from "./db.js";
 
-/** Riwayat akses dashboard: siapa (IP + perangkat) login dan mengambil cookie apa. */
+/** Riwayat akses dashboard: siapa (akun, IP, perangkat) login dan mengambil cookie apa. */
 
 const AUTH_EVENTS = ["login", "logout"] as const;
 const COOKIE_EVENTS = ["cookie-get", "cookie-download", "session-download"] as const;
@@ -14,6 +14,8 @@ export const KEEP_ACCESS_LOGS = 10_000;
 
 export interface AccessEntry {
   ok: boolean;
+  /** Hanya untuk login/logout tanpa req.user (mis. login gagal). */
+  username?: string;
   accountId?: string;
   itemId?: string;
   cookieCount?: number;
@@ -27,6 +29,7 @@ export interface AccessLogRow {
   ok: number;
   ip: string;
   user_agent: string | null;
+  username: string | null;
   account_id: string | null;
   account_label: string | null;
   app_name: string | null;
@@ -58,14 +61,15 @@ export function logAccess(req: FastifyRequest, event: AccessEvent, entry: Access
       : undefined;
 
   db.prepare(
-    `INSERT INTO access_logs(at, event, ok, ip, user_agent, account_id, account_label, app_name, item_id, item_name, cookie_count, message)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO access_logs(at, event, ok, ip, user_agent, username, account_id, account_label, app_name, item_id, item_name, cookie_count, message)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   ).run(
     now(),
     event,
     entry.ok ? 1 : 0,
     req.ip.replace(/^::ffff:/, ""),
     req.headers["user-agent"]?.slice(0, 300) ?? null,
+    (entry.username ?? req.user?.username)?.slice(0, 64) || null,
     accountId?.slice(0, 100) ?? null,
     account?.label ?? null,
     item?.app_name ?? null,
