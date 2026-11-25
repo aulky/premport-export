@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination, pageCountOf, PAGE_SIZE } from "@/components/Pagination";
 import { LogIn, ShieldCheck, RefreshCcw, Cookie, Search } from "lucide-react";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
 
@@ -35,11 +36,12 @@ export function LogsPage() {
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
     try {
-      const [r, a] = await Promise.all([api.runs(300), api.accounts()]);
+      const [r, a] = await Promise.all([api.runs(1000), api.accounts()]);
       setRuns(r);
       setAccounts(a);
     } catch (e) {
@@ -68,6 +70,10 @@ export function LogsPage() {
     });
   }, [runs, filter, search, labelFor]);
 
+  // dijepit di sini supaya halaman tetap valid kalau jumlah log menyusut
+  const currentPage = Math.min(page, pageCountOf(filtered?.length ?? 0));
+  const visible = filtered?.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="min-h-full bg-background">
       <header className="hidden border-b border-border bg-card/70 px-6 py-4 backdrop-blur lg:block">
@@ -85,7 +91,10 @@ export function LogsPage() {
             <div className="flex flex-col gap-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-8" placeholder="Cari akun atau pesan log…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <Input className="pl-8" placeholder="Cari akun atau pesan log…" value={search} onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }} />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {FILTERS.map((f) => (
@@ -93,7 +102,10 @@ export function LogsPage() {
                     key={f.key}
                     size="sm"
                     variant={filter === f.key ? "default" : "outline"}
-                    onClick={() => setFilter(f.key)}
+                    onClick={() => {
+                      setFilter(f.key);
+                      setPage(1);
+                    }}
                   >
                     {f.label}
                   </Button>
@@ -112,7 +124,7 @@ export function LogsPage() {
               <p className="text-sm text-muted-foreground">Tidak ada log yang cocok.</p>
             ) : (
               <ul className="flex flex-col gap-1">
-                {filtered.map((r) => {
+                {visible!.map((r) => {
                   const meta = KIND_META[r.kind] ?? { label: r.kind, icon: ShieldCheck, tone: "text-muted-foreground" };
                   const Icon = meta.icon;
                   return (
@@ -133,6 +145,11 @@ export function LogsPage() {
                   );
                 })}
               </ul>
+            )}
+            {filtered && (
+              <div className="mt-3">
+                <Pagination page={currentPage} total={filtered.length} onChange={setPage} />
+              </div>
             )}
           </CardContent>
         </Card>

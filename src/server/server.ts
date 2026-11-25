@@ -241,7 +241,7 @@ app.get<{ Params: { id: string } }>("/api/accounts/:id/cookies.json", async (req
 
 app.get("/api/runs", async (req) => {
   const limit = Number((req.query as { limit?: string }).limit) || 50;
-  return recentRuns(Math.min(limit, 200));
+  return recentRuns(Math.min(limit, 1000));
 });
 
 app.setNotFoundHandler((req, reply) => {
