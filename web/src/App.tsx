@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { AccountPage } from "@/pages/AccountPage";
@@ -27,33 +27,34 @@ export function App() {
   const [path, setPath] = useState(() => window.location.pathname);
   // Pesan di halaman login setelah sesi berakhir sendiri (bukan logout manual).
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  // Hanya sesi yang tadinya aktif yang bisa "berakhir". Pengunjung baru juga
+  // mendapat 401 dari /api/me, tapi dia tidak boleh melihat pesan sesi habis.
+  const signedIn = useRef(false);
+  useEffect(() => {
+    signedIn.current = !!me;
+  }, [me]);
+
+  const endSession = useCallback(() => {
+    if (!signedIn.current) return;
+    signedIn.current = false;
+    setSessionNotice("Your session has expired. Please sign in again.");
+    setMe(null);
+  }, []);
 
   useEffect(() => {
     api.me().then(setMe, () => setMe(null));
-    const onUnauthorized = () => {
-      setSessionNotice((prev) => prev ?? "Your session has expired. Please sign in again.");
-      setMe(null);
-    };
-    window.addEventListener("unauthorized", onUnauthorized);
-    return () => window.removeEventListener("unauthorized", onUnauthorized);
-  }, []);
+    window.addEventListener("unauthorized", endSession);
+    return () => window.removeEventListener("unauthorized", endSession);
+  }, [endSession]);
 
   // Auto-logout tepat saat sesi berakhir, tanpa menunggu pengguna mengklik apa pun
   // dulu (lihat SESSION_TTL_SEC/"/api/settings/session" di server).
   useEffect(() => {
     if (!me?.expiresAt) return;
     const msLeft = me.expiresAt * 1000 - Date.now();
-    const expire = () => {
-      setSessionNotice("Your session has expired. Please sign in again.");
-      setMe(null);
-    };
-    if (msLeft <= 0) {
-      expire();
-      return;
-    }
-    const t = window.setTimeout(expire, msLeft);
+    const t = window.setTimeout(endSession, Math.max(0, msLeft));
     return () => window.clearTimeout(t);
-  }, [me?.expiresAt]);
+  }, [me?.expiresAt, endSession]);
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname);

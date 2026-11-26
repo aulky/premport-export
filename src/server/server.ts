@@ -132,7 +132,7 @@ app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { c
     path: "/",
     maxAge: ttlSec,
   });
-  return { username: user.username, role: user.role };
+  return { username: user.username, role: user.role, expiresAt: verifySession(token)?.exp ?? null };
 });
 
 app.get("/api/me", USER, async (req) => ({
