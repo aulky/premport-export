@@ -117,7 +117,7 @@ export function PageHeader({
         </Button>
         {leading}
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 font-mono text-lg font-semibold text-brand">{title}</h1>
+          <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">{title}</h1>
           {subtitle && <p className="hidden truncate text-sm text-muted-foreground sm:block">{subtitle}</p>}
         </div>
       </div>

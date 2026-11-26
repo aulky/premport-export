@@ -31,7 +31,7 @@ export function Login({ onSuccess, notice }: { onSuccess: (me: MeDto) => void; n
       <Card className="w-full max-w-sm shadow-raised">
         <CardHeader className="items-center justify-items-center gap-2 text-center">
           <Logo className="mb-1 size-16" />
-          <CardTitle className="text-xl tracking-tight text-brand">{APP_NAME}</CardTitle>
+          <CardTitle className="text-xl tracking-tight text-foreground">{APP_NAME}</CardTitle>
           <CardDescription>Sign in to view and export cookies.</CardDescription>
         </CardHeader>
         <CardContent>

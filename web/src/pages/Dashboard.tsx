@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Search } from "lucide-react";
+import { CircleCheck, RefreshCw, Search, TriangleAlert, Users, type LucideIcon } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { useIsAdmin } from "@/lib/me";
-import { plural } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
 function timeAgo(ts: number | null) {
@@ -119,9 +119,9 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard label="Total accounts" value={summary.total} />
-          <StatCard label="Active" value={summary.valid} tone="success" />
-          <StatCard label="Needs attention" value={summary.error} tone="destructive" />
+          <StatCard label="Total accounts" value={summary.total} icon={Users} />
+          <StatCard label="Active" value={summary.valid} icon={CircleCheck} tone="success" />
+          <StatCard label="Needs attention" value={summary.error} icon={TriangleAlert} tone={summary.error ? "destructive" : undefined} />
         </div>
 
         <Card className="shadow-panel">
@@ -252,18 +252,27 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
   );
 }
 
-function StatCard({ label, value, tone }: { label: string; value: number; tone?: "success" | "destructive" }) {
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: LucideIcon; tone?: "success" | "destructive" }) {
   return (
     <Card className="shadow-panel">
-      <CardContent className="flex flex-col gap-1 pt-6">
-        <span className="text-sm text-muted-foreground">{label}</span>
+      <CardContent className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-muted-foreground">{label}</span>
+          <span className={cn("text-3xl font-semibold tracking-tight tabular-nums", tone === "destructive" && "text-destructive")}>
+            {value}
+          </span>
+        </div>
         <span
-          className={
-            "text-3xl font-semibold font-mono " +
-            (tone === "success" ? "text-success-foreground" : tone === "destructive" ? "text-destructive" : "text-brand")
-          }
+          className={cn(
+            "grid size-11 shrink-0 place-content-center rounded-xl",
+            tone === "success"
+              ? "bg-success text-success-foreground"
+              : tone === "destructive"
+                ? "bg-destructive/10 text-destructive"
+                : "bg-accent text-brand",
+          )}
         >
-          {value}
+          <Icon className="size-5" />
         </span>
       </CardContent>
     </Card>
