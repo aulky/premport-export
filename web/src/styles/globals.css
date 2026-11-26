@@ -1,86 +1,117 @@
 @import "tailwindcss";
 @import "./dens-ui.css";
 
-/* Override aksen oranye bawaan Dens-UI dengan pasangan warna Anda:
-   Mars Green #008C8D sebagai brand/primary, Periwinkle #53589A sebagai aksen kedua,
-   Powder #FFF2DF sebagai warm neutral untuk permukaan. Sidebar tetap memakai
-   identitas teal gelap di kedua mode, supaya brand-nya konsisten.
+/* Palet aplikasi, menimpa token bawaan Dens-UI: netral slate yang sejuk,
+   teal sebagai warna utama, indigo sebagai aksen, sidebar navy di kedua mode.
 
-   PENTING soal urutan cascade: blok ini HARUS pakai ":root:not(.dark)", bukan
+   PENTING soal urutan cascade: blok light HARUS pakai ":root:not(.dark)", bukan
    ":root" polos. ":root" dan ".dark" sama-sama satu class dalam hal specificity,
    jadi siapa yang menang murni soal urutan deklarasi -- ":root" di sini datang
    SETELAH ".dark" bawaan dens-ui.css, jadi dia akan menimpa balik nilai dark
-   mode walau elemennya sedang punya class "dark" (variabel custom property
-   tidak tahu soal "mode", dia cuma ikut pemenang cascade apa adanya). */
+   mode walau elemennya sedang punya class "dark". */
 :root:not(.dark) {
-  --brand: #008c8d;
-  --primary: #00797a;
-  --ring: #008c8d;
+  --background: #f4f6f9;
+  --foreground: #0f172a;
+  --surface: #f8fafc;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
 
-  --highlight: #53589a; /* Periwinkle jadi aksen kedua, gantikan oranye */
+  --brand: #0b7677;
+  --brand-foreground: #ffffff;
+  --primary: #0b7677;
+  --primary-foreground: #ffffff;
+  --ring: #0e8f90;
+
+  --secondary: #e9edf3;
+  --secondary-foreground: #1e293b;
+  --muted: #edf0f5;
+  --muted-foreground: #526077;
+  --accent: #e5f3f4;
+  --accent-foreground: #0c4a4c;
+  --border: #dde3ec;
+  --input: #cbd4e1;
+
+  --highlight: #4f46b8;
   --highlight-foreground: #ffffff;
 
-  --background: #f8f4ea;
-  --surface: #fff2df; /* Powder */
-  --secondary: #efe2cb;
-  --secondary-foreground: #241f14;
-  --accent: #eef0fa; /* periwinkle tint, untuk hover/aktif ringan */
-  --accent-foreground: #2c2f5c;
-  --border: #e4d9c2;
+  --soft: #d3efee;
+  --soft-foreground: #0b5051;
+  --success: #d8f3e4;
+  --success-foreground: #0a5c39;
+  --warning: #fde68a;
+  --warning-foreground: #6b3305;
+  --info: #1d4ed8;
+  --info-foreground: #ffffff;
+  --destructive: #c0293b;
+  --destructive-foreground: #ffffff;
 
-  --sidebar: #0f3d3d;
-  --sidebar-foreground: #eafbf9;
-  --sidebar-primary: #008c8d;
+  --sidebar: #121c2f;
+  --sidebar-foreground: #e6ecf7;
+  --sidebar-primary: #0e8f90;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1b5353;
-  --sidebar-accent-foreground: #eafbf9;
-  --sidebar-border: #175a5a;
-  --sidebar-ring: #19a3a4;
+  --sidebar-accent: #1f2d47;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #24324d;
+  --sidebar-ring: #3cc8c6;
 
-  --chart-1: #008c8d;
-  --chart-2: #53589a;
-  --chart-3: #c08a2e;
-  --chart-4: #a7325e;
-  --chart-5: #2d6b4f;
+  --elevation-panel: 0 1px 2px rgb(15 23 42 / 0.05), 0 10px 28px -16px rgb(15 23 42 / 0.16);
+  --elevation-raised: 0 2px 6px rgb(15 23 42 / 0.07), 0 18px 40px -16px rgb(15 23 42 / 0.24);
 
-  /* Pendar lembut di latar, memakai kedua warna brand -- bikin permukaan datar
-     terasa lebih hidup tanpa mengganggu keterbacaan konten di atasnya. */
-  --surface-glow: radial-gradient(60rem 36rem at 100% -12%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
-    radial-gradient(50rem 32rem at -10% 110%, color-mix(in srgb, var(--highlight) 12%, transparent), transparent 60%);
+  --surface-glow: radial-gradient(60rem 36rem at 100% -12%, color-mix(in srgb, var(--brand) 8%, transparent), transparent 60%),
+    radial-gradient(50rem 32rem at -10% 110%, color-mix(in srgb, var(--highlight) 8%, transparent), transparent 60%);
 }
 
 .dark {
-  --brand: #1fb5b6;
-  --primary: #19a3a4;
-  --highlight: #8689d1;
-  --highlight-foreground: #0d0f24;
+  --background: #0b111e;
+  --foreground: #e5eaf4;
+  --surface: #101828;
+  --card: #131c2d;
+  --card-foreground: #e5eaf4;
+  --popover: #172135;
+  --popover-foreground: #e5eaf4;
 
-  /* Netral digeser ke teal gelap (bukan abu-abu netral bawaan Dens-UI), supaya
-     identitas brand jalan terus di dark mode, bukan cuma di sidebar. */
-  --background: #091615;
-  --surface: #0e201e;
-  --card: #122826;
-  --card-foreground: #e8f5f2;
-  --popover: #122826;
-  --popover-foreground: #e8f5f2;
-  --secondary: #163431;
-  --secondary-foreground: #d7f3ef;
-  --accent: #1c2342;
-  --accent-foreground: #d7d9f5;
-  --border: #1d3f3c;
-  --input: #244946;
+  --brand: #45cbc8;
+  --brand-foreground: #05201f;
+  --primary: #35bfbc;
+  --primary-foreground: #05201f;
+  --ring: #45cbc8;
 
-  --sidebar: #081e1e;
-  --sidebar-foreground: #dff7f4;
-  --sidebar-primary: #19a3a4;
-  --sidebar-primary-foreground: #031414;
-  --sidebar-accent: #123b3b;
-  --sidebar-accent-foreground: #dff7f4;
-  --sidebar-border: #163939;
-  --sidebar-ring: #19a3a4;
+  --secondary: #1f2a3f;
+  --secondary-foreground: #e5eaf4;
+  --muted: #1a2437;
+  --muted-foreground: #98a6bd;
+  --accent: #1a2c40;
+  --accent-foreground: #d5f4f3;
+  --border: #243047;
+  --input: #303e59;
 
-  --surface-glow: radial-gradient(60rem 36rem at 100% -12%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%),
-    radial-gradient(50rem 32rem at -10% 110%, color-mix(in srgb, var(--highlight) 18%, transparent), transparent 60%);
+  --highlight: #a5adfa;
+  --highlight-foreground: #14173a;
+
+  --soft: #10393f;
+  --soft-foreground: #b4eeeb;
+  --success: #10392d;
+  --success-foreground: #8be5b9;
+  --warning: #422f0c;
+  --warning-foreground: #fbd569;
+  --info: #172b5e;
+  --info-foreground: #c3d5ff;
+  --destructive: #f5737d;
+  --destructive-foreground: #2b070b;
+
+  --sidebar: #0e1626;
+  --sidebar-foreground: #e5eaf4;
+  --sidebar-primary: #35bfbc;
+  --sidebar-primary-foreground: #05201f;
+  --sidebar-accent: #1b2941;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1e2a41;
+  --sidebar-ring: #45cbc8;
+
+  --surface-glow: radial-gradient(60rem 36rem at 100% -12%, color-mix(in srgb, var(--brand) 11%, transparent), transparent 60%),
+    radial-gradient(50rem 32rem at -10% 110%, color-mix(in srgb, var(--highlight) 11%, transparent), transparent 60%);
 }
 
 /* `bg-background` dipakai pada elemen full-layar yang opaque (shell, halaman
@@ -95,8 +126,8 @@
 /* Scrollbar tipis dengan jalur transparan di seluruh aplikasi. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(15 61 61 / 0.25) transparent;
+  scrollbar-color: rgb(30 41 59 / 0.25) transparent;
 }
 .dark * {
-  scrollbar-color: rgb(223 247 244 / 0.18) transparent;
+  scrollbar-color: rgb(203 213 225 / 0.18) transparent;
 }

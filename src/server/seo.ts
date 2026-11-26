@@ -136,13 +136,13 @@ export function renderAbout(base: string): string {
     ${headTags(base, "/about")}
     ${faqLd}
     <style>
-      body { margin: 0; font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #12302f; background: #fff9ef; }
+      body { margin: 0; font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #f4f6f9; }
       main { max-width: 42rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
-      h1 { margin: 1rem 0 0.5rem; font-size: 2rem; line-height: 1.2; color: #006e70; }
+      h1 { margin: 1rem 0 0.5rem; font-size: 2rem; line-height: 1.2; color: #0b7677; }
       h2 { margin: 2.25rem 0 0.5rem; font-size: 1.25rem; }
       h3 { margin: 1.25rem 0 0.25rem; font-size: 1rem; }
       p { margin: 0.5rem 0; }
-      a.button { display: inline-block; margin-top: 1rem; padding: 0.6rem 1.4rem; border-radius: 0.6rem; background: #007c7e; color: #fff; text-decoration: none; }
+      a.button { display: inline-block; margin-top: 1rem; padding: 0.6rem 1.4rem; border-radius: 0.6rem; background: #0b7677; color: #fff; text-decoration: none; }
     </style>
   </head>
   <body>

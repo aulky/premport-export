@@ -45,7 +45,7 @@ function SidebarSection({
   return (
     <div data-slot="sidebar-section" className={cn("flex w-full flex-col gap-0.5", className)} {...props}>
       {label && !collapsed && (
-        <div className="px-3 pb-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="px-3 pb-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-sidebar-foreground/55">
           {label}
         </div>
       )}

@@ -35,7 +35,13 @@ function SidebarContent({ path, navigate }: { path: string; navigate: (to: strin
 
       <SidebarSection label="Menu">
         {NAV.filter((item) => !item.adminOnly || me.role === "admin").map((item) => (
-          <SidebarItem key={item.to} icon={<item.icon />} active={item.match(path)} onClick={() => navigate(item.to)}>
+          <SidebarItem
+            key={item.to}
+            icon={<item.icon />}
+            active={item.match(path)}
+            onClick={() => navigate(item.to)}
+            className="data-[active=true]:[&_svg]:text-sidebar-ring"
+          >
             {item.label}
           </SidebarItem>
         ))}
