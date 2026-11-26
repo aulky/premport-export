@@ -11,6 +11,7 @@ import { api, type AccountDto, type RunDto } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { useIsAdmin } from "@/lib/me";
 import { plural } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 function timeAgo(ts: number | null) {
   if (!ts) return "—";
@@ -44,6 +45,7 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
       const [a, r] = await Promise.all([api.accounts(), isAdmin ? api.runs(30) : Promise.resolve([])]);
       setAccounts(a);
       setRuns(r);
+      setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -73,12 +75,13 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
 
   async function refreshOne(id: string) {
     setRefreshingId(id);
-    setError(null);
+    const label = accounts?.find((a) => a.id === id)?.label ?? id;
     try {
       await api.refreshAccount(id);
+      toast.success("Account refreshed", label);
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error(`Could not refresh ${label}`, (e as Error).message);
     } finally {
       setRefreshingId(null);
     }
@@ -86,12 +89,14 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
 
   async function refreshAll() {
     setRefreshingAll(true);
-    setError(null);
     try {
-      await api.refreshAll();
+      const { results } = await api.refreshAll();
+      const failed = results.filter((r) => !r.ok).length;
+      if (failed) toast.error("Refresh finished with errors", `${failed} of ${plural(results.length, "account")} failed.`);
+      else toast.success("All accounts refreshed", plural(results.length, "account"));
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Could not refresh accounts", (e as Error).message);
     } finally {
       setRefreshingAll(false);
     }
@@ -191,7 +196,10 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
                             size="sm"
                             variant="secondary"
                             disabled={a.status !== "valid" && a.status !== "expired"}
-                            onClick={() => window.open(api.cookiesUrl(a.id), "_blank")}
+                            onClick={() => {
+                              window.open(api.cookiesUrl(a.id), "_blank");
+                              toast.success("Download started", `cookie.json for ${a.label}`);
+                            }}
                           >
                             Export cookie.json
                           </Button>

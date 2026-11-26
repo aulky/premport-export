@@ -10,6 +10,7 @@ import { UsersPage } from "@/pages/UsersPage";
 import { api, type MeDto } from "@/lib/api";
 import { MeContext } from "@/lib/me";
 import { ThemeContext, useThemeState } from "@/lib/theme";
+import { toast } from "@/lib/toast";
 
 function parseAccountId(pathname: string): string | null {
   const m = /^\/accounts\/([^/]+)\/?$/.exec(pathname);
@@ -83,6 +84,7 @@ export function App() {
             setSessionNotice(null);
             navigate("/");
             setMe(who);
+            toast.success("Signed in", `Welcome, ${who.username}.`);
           }}
         />
       </ThemeContext.Provider>

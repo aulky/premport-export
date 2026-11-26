@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AppsExplorer } from "@/components/AppsExplorer";
 import { PageHeader } from "@/components/PageHeader";
 import { useIsAdmin } from "@/lib/me";
+import { toast } from "@/lib/toast";
 
 export function AccountPage({ accountId, onBack }: { accountId: string; onBack: () => void }) {
   const isAdmin = useIsAdmin();
@@ -17,6 +18,7 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
   async function load() {
     try {
       setAccount(await api.account(accountId));
+      setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -31,12 +33,12 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
 
   async function handleRefresh() {
     setRefreshing(true);
-    setError(null);
     try {
       await api.refreshAccount(accountId);
+      toast.success("Account refreshed", account?.label ?? accountId);
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Refresh failed", (e as Error).message);
     } finally {
       setRefreshing(false);
     }
@@ -66,7 +68,11 @@ export function AccountPage({ accountId, onBack }: { accountId: string; onBack: 
             <Button
               variant="secondary"
               disabled={!account || (account.status !== "valid" && account.status !== "expired")}
-              onClick={() => account && window.open(api.cookiesUrl(account.id), "_blank")}
+              onClick={() => {
+                if (!account) return;
+                window.open(api.cookiesUrl(account.id), "_blank");
+                toast.success("Download started", `Session for ${account.label}`);
+              }}
               aria-label="Export session"
               title="Export session"
             >

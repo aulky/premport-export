@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
 import { api, type SessionSettingsDto, type UserDto } from "@/lib/api";
+import { toast } from "@/lib/toast";
 
 const formatTime = (ts: number | null) =>
   ts ? new Date(ts * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "never";
@@ -30,7 +31,7 @@ function SessionSecurityCard() {
   const [settings, setSettings] = useState<SessionSettingsDto | null>(null);
   const [minutes, setMinutes] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     api.sessionSettings().then(
@@ -38,26 +39,26 @@ function SessionSecurityCard() {
         setSettings(s);
         setMinutes(String(minutesOf(s.ttlSec)));
       },
-      (e: Error) => setMessage({ ok: false, text: e.message }),
+      (e: Error) => setLoadError(e.message),
     );
   }, []);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setMessage(null);
     try {
       const { ttlSec } = await api.setSessionTtl(Math.round(Number(minutes) * 60));
       setSettings((s) => (s ? { ...s, ttlSec } : s));
       setMinutes(String(minutesOf(ttlSec)));
-      setMessage({ ok: true, text: `New logins now expire after ${minutesOf(ttlSec)} minute(s). Already-signed-in sessions keep their old expiry.` });
+      toast.success("Session lifetime saved", `New logins now expire after ${minutesOf(ttlSec)} minute(s). Already-signed-in sessions keep their old expiry.`);
     } catch (e) {
-      setMessage({ ok: false, text: (e as Error).message });
+      toast.error("Could not save", (e as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
+  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!settings) return <Skeleton className="h-24 w-full" />;
   const minMinutes = Math.max(1, Math.ceil(settings.minSec / 60));
   const maxMinutes = Math.floor(settings.maxSec / 60);
@@ -95,7 +96,6 @@ function SessionSecurityCard() {
             Allowed range: {minMinutes}-{maxMinutes} minutes. Applies to new sign-ins only.
           </p>
         </form>
-        {message && <p className={`text-sm ${message.ok ? "text-success-foreground" : "text-destructive"}`}>{message.text}</p>}
       </CardContent>
     </Card>
   );
@@ -107,7 +107,7 @@ export function UsersPage() {
   const [password, setPassword] = useState("");
   const [expiresOn, setExpiresOn] = useState(""); // tanggal opsional saat membuat user baru
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   // baris yang sedang diganti passwordnya / menunggu konfirmasi hapus
   const [editing, setEditing] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -120,7 +120,7 @@ export function UsersPage() {
   const [editingExpiry, setEditingExpiry] = useState<number | null>(null);
   const [expiryDate, setExpiryDate] = useState("");
 
-  const load = () => api.users().then(setUsers, (e: Error) => setMessage({ ok: false, text: e.message }));
+  const load = () => api.users().then(setUsers, (e: Error) => setLoadError(e.message));
 
   useEffect(() => {
     void load();
@@ -130,14 +130,13 @@ export function UsersPage() {
   /** true kalau berhasil. */
   async function run(action: () => Promise<unknown>, success: string) {
     setBusy(true);
-    setMessage(null);
     try {
       await action();
-      setMessage({ ok: true, text: success });
+      toast.success(success);
       await load();
       return true;
     } catch (e) {
-      setMessage({ ok: false, text: (e as Error).message });
+      toast.error("Action failed", (e as Error).message);
       return false;
     } finally {
       setBusy(false);
@@ -224,7 +223,7 @@ export function UsersPage() {
           </CardContent>
         </Card>
 
-        {message && <p className={`text-sm ${message.ok ? "text-success-foreground" : "text-destructive"}`}>{message.text}</p>}
+        {loadError && <p className="text-sm text-destructive">{loadError}</p>}
 
         <Card className="shadow-panel">
           <CardHeader>

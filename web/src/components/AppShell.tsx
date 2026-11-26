@@ -11,6 +11,7 @@ import { Logo } from "@/components/Logo";
 import { ShellContext } from "@/components/PageHeader";
 import { api } from "@/lib/api";
 import { MeContext } from "@/lib/me";
+import { toast } from "@/lib/toast";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, match: (p: string) => p === "/" || p.startsWith("/accounts/") },
@@ -65,6 +66,7 @@ export function AppShell({
     setMobileOpen(false);
     try {
       await api.logout();
+      toast.success("Signed out");
     } finally {
       onLogout();
     }

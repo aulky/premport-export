@@ -8,6 +8,7 @@ import { ChevronLeft, Copy, Download, ExternalLink, Eye, EyeOff, RefreshCw, Sear
 import { api, type AppDto, type CredsDto, type ItemDto, type ListAccountDto } from "@/lib/api";
 import { plural } from "@/lib/utils";
 import { AppIcon } from "@/components/AppIcon";
+import { toast } from "@/lib/toast";
 
 function timeAgo(ts: number | null) {
   if (!ts) return "never";
@@ -31,13 +32,20 @@ const isCredsType = (targetType: string | null) => targetType === "autofill" || 
 /** Baris username/password untuk 1 item "autofill" -- disembunyikan sampai diklik. */
 function CredsRow({ creds }: { creds: CredsDto }) {
   const [shown, setShown] = useState(false);
-  const copy = (text: string | null) => text && void navigator.clipboard.writeText(text);
+  async function copy(label: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error("Could not copy", "The browser blocked clipboard access.");
+    }
+  }
   const field = (label: string, value: string | null, mask: boolean) =>
     value && (
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="w-16 shrink-0 text-xs text-muted-foreground">{label}</span>
         <span className="truncate font-mono text-xs">{mask && !shown ? "•".repeat(Math.min(value.length, 14)) : value}</span>
-        <Button size="icon-sm" variant="ghost" className="size-6 shrink-0" title={`Copy ${label.toLowerCase()}`} onClick={() => copy(value)}>
+        <Button size="icon-sm" variant="ghost" className="size-6 shrink-0" title={`Copy ${label.toLowerCase()}`} onClick={() => void copy(label, value)}>
           <Copy className="size-3" />
         </Button>
       </div>
@@ -71,7 +79,6 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
   const [itemSearch, setItemSearch] = useState("");
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const [busyApp, setBusyApp] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [creds, setCreds] = useState<Record<string, CredsDto>>({});
   const [hasFetchedList, setHasFetchedList] = useState(false);
 
@@ -100,12 +107,12 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
 
   async function handleGet(itemId: string) {
     setBusyItem(itemId);
-    setError(null);
     try {
-      await api.fetchItemCookies(accountId, itemId);
+      const { cookieCount } = await api.fetchItemCookies(accountId, itemId);
+      toast.success("Cookies fetched", plural(cookieCount, "cookie"));
       await reloadItems();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Could not fetch cookies", (e as Error).message);
     } finally {
       setBusyItem(null);
     }
@@ -114,13 +121,13 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
   /** "Get"/"Refresh" -- selalu ambil ulang dari provider dan langsung tampilkan hasilnya. */
   async function handleGetCreds(itemId: string) {
     setBusyItem(itemId);
-    setError(null);
     try {
       const res = await api.fetchItemCreds(accountId, itemId);
       setCreds((c) => ({ ...c, [itemId]: res }));
+      toast.success("Credentials fetched");
       await reloadItems();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Could not fetch credentials", (e as Error).message);
     } finally {
       setBusyItem(null);
     }
@@ -129,13 +136,12 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
   /** "View" -- tampilkan kredensial yang sudah tersimpan, tanpa memanggil provider lagi. */
   async function handleViewCreds(itemId: string) {
     setBusyItem(itemId);
-    setError(null);
     try {
       setCreds((c) => ({ ...c, [itemId]: null as unknown as CredsDto }));
       const res = await api.itemCreds(accountId, itemId);
       setCreds((c) => ({ ...c, [itemId]: res }));
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Could not load credentials", (e as Error).message);
       setCreds((c) => {
         const { [itemId]: _drop, ...rest } = c;
         return rest;
@@ -153,7 +159,6 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
   async function handleGetListAccounts() {
     if (!selectedApp) return;
     setBusyApp(true);
-    setError(null);
     try {
       const res = await api.fetchListAccounts(accountId, selectedApp.appId);
       setCreds((c) => {
@@ -162,9 +167,10 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
         return next;
       });
       setHasFetchedList(true);
+      toast.success("Accounts fetched", plural(res.accounts.length, "account"));
       await reloadItems();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Could not fetch accounts", (e as Error).message);
     } finally {
       setBusyApp(false);
     }
@@ -343,7 +349,10 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                               size="icon-sm"
                               variant="outline"
                               title="Export cookie.json (format Cookie-Editor)"
-                              onClick={() => window.open(api.itemCookiesUrl(accountId, item.itemId), "_blank")}
+                              onClick={() => {
+                                window.open(api.itemCookiesUrl(accountId, item.itemId), "_blank");
+                                toast.success("Download started", item.itemName ?? item.itemId);
+                              }}
                             >
                               <Download className="size-3.5" />
                             </Button>
@@ -378,8 +387,6 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
             </ul>
           </div>
         )}
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>
     </Card>
   );
