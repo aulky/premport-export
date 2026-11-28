@@ -1,5 +1,5 @@
-import { useContext, useState } from "react";
-import { LayoutDashboard, LayoutGrid, ScrollText, BookOpen, Users } from "lucide-react";
+import { useContext, useEffect, useState } from "react";
+import { LayoutDashboard, LayoutGrid, ScrollText, BookOpen, Users, X } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -68,6 +68,21 @@ export function AppShell({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Drawer mobile: tutup dengan Escape, dan tutup sendiri kalau layar dilebarkan
+  // melewati breakpoint lg (sidebar tetap tampil, drawer jadi tak berguna).
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMobileOpen(false);
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const onWide = () => wide.matches && setMobileOpen(false);
+    window.addEventListener("keydown", onKey);
+    wide.addEventListener("change", onWide);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      wide.removeEventListener("change", onWide);
+    };
+  }, [mobileOpen]);
+
   async function handleLogout() {
     setMobileOpen(false);
     try {
@@ -79,7 +94,7 @@ export function AppShell({
   }
 
   return (
-    <div className="app-backdrop flex h-screen overflow-hidden">
+    <div className="app-backdrop flex h-dvh overflow-hidden">
       {/* Sidebar -- tetap tampil di layar besar */}
       <div className="hidden shrink-0 lg:flex lg:w-60">
         <SidebarContent path={path} navigate={navigate} />
@@ -87,9 +102,17 @@ export function AppShell({
 
       {/* Drawer -- overlay di layar kecil/medium */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <div className="relative z-10 h-full w-60 shadow-raised">
+        <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <div className="absolute inset-0 animate-[fade-in_150ms_ease-out] bg-black/45 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} />
+          <div className="relative z-10 h-full w-[min(17rem,85vw)] animate-[drawer-in_200ms_ease-out] shadow-raised">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              className="absolute right-2 top-3.5 z-10 grid size-8 place-content-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            >
+              <X className="size-4" />
+            </button>
             <SidebarContent
               path={path}
               navigate={(to) => {

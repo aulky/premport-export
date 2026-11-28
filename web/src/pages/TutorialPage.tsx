@@ -110,7 +110,7 @@ export function TutorialPage() {
           <Card key={step.title} className="shadow-panel">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <step.icon className="size-4 text-brand" />
+                <step.icon className="size-4 shrink-0 text-brand" />
                 {step.title}
               </CardTitle>
             </CardHeader>

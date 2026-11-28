@@ -102,6 +102,34 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
     }
   }
 
+  function actionsFor(a: AccountDto) {
+    return (
+      <>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={refreshingId === a.id}
+          onClick={() => void refreshOne(a.id)}
+          aria-label={`Refresh ${a.label}`}
+          title="Refresh"
+        >
+          <RefreshCw className={`size-3.5 ${refreshingId === a.id ? "animate-spin" : ""}`} />
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={a.status !== "valid" && a.status !== "expired"}
+          onClick={() => {
+            window.open(api.cookiesUrl(a.id), "_blank");
+            toast.success("Download started", `cookie.json for ${a.label}`);
+          }}
+        >
+          Export cookie.json
+        </Button>
+      </>
+    );
+  }
+
   return (
     <div className="min-h-full bg-background">
       <PageHeader
@@ -150,7 +178,47 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
             ) : filteredAccounts.length === 0 ? (
               <p className="text-sm text-muted-foreground">No accounts match your search.</p>
             ) : (
-              <Table>
+              <>
+              {/* Layar kecil: satu kartu per akun, supaya status dan tombol aksi
+                  tidak tersembunyi di balik tabel yang harus digeser ke samping. */}
+              <ul className="flex flex-col gap-3 md:hidden">
+                {filteredAccounts.map((a) => (
+                  <li key={a.id} className="rounded-xl border border-border bg-surface/60 p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                          {a.label}
+                          {a.isPrimary && <Badge variant="secondary">Primary</Badge>}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">{a.email}</div>
+                      </div>
+                      <StatusBadge status={a.status} />
+                    </div>
+                    {a.status === "error" && a.lastError && (
+                      <p className="mt-2 line-clamp-2 text-xs text-destructive" title={a.lastError}>
+                        {a.lastError}
+                      </p>
+                    )}
+                    <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <dt className="text-muted-foreground">Checked</dt>
+                        <dd className="font-medium">{timeAgo(a.lastCheckedAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Session ends</dt>
+                        <dd className="font-medium">{untilText(a.expiresAt)}</dd>
+                      </div>
+                    </dl>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-3">
+                      <Button variant="outline" size="sm" onClick={() => onOpenAccount(a.id)}>
+                        {plural(a.appCount, "app")}
+                      </Button>
+                      {isAdmin && <div className="ml-auto flex items-center gap-1.5">{actionsFor(a)}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <Table containerClassName="hidden md:block">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Account</TableHead>
@@ -187,29 +255,15 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
                         </Button>
                       </TableCell>
                       {isAdmin && (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button size="sm" variant="outline" disabled={refreshingId === a.id} onClick={() => void refreshOne(a.id)}>
-                            <RefreshCw className={`size-3.5 ${refreshingId === a.id ? "animate-spin" : ""}`} />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={a.status !== "valid" && a.status !== "expired"}
-                            onClick={() => {
-                              window.open(api.cookiesUrl(a.id), "_blank");
-                              toast.success("Download started", `cookie.json for ${a.label}`);
-                            }}
-                          >
-                            Export cookie.json
-                          </Button>
-                        </div>
-                      </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">{actionsFor(a)}</div>
+                        </TableCell>
                       )}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              </>
             )}
           </CardContent>
         </Card>

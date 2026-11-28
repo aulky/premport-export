@@ -264,13 +264,23 @@ export function AppsExplorer({ accountId }: { accountId: string }) {
                   <AppIcon url={app.url} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{app.name}</div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      {app.category && <span className="capitalize">{app.category}</span>}
+                    <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                      {app.category && <span className="truncate capitalize">{app.category}</span>}
                       {app.category && <span>·</span>}
                       <span>{plural(app.itemCount, "item")}</span>
                     </div>
+                    {/* Layar sempit: badge di bawah nama supaya nama app tidak terpotong. */}
+                    <Badge
+                      variant={app.targetType === "cookies" || isCredsType(app.targetType) ? "success" : "secondary"}
+                      className="mt-1.5 max-w-full whitespace-normal text-left sm:hidden"
+                    >
+                      {TARGET_LABEL[app.targetType ?? ""] ?? app.targetType ?? "?"}
+                    </Badge>
                   </div>
-                  <Badge variant={app.targetType === "cookies" || isCredsType(app.targetType) ? "success" : "secondary"}>
+                  <Badge
+                    variant={app.targetType === "cookies" || isCredsType(app.targetType) ? "success" : "secondary"}
+                    className="hidden shrink-0 sm:inline-flex"
+                  >
                     {TARGET_LABEL[app.targetType ?? ""] ?? app.targetType ?? "?"}
                   </Badge>
                 </button>
