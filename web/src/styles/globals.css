@@ -239,3 +239,20 @@
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Animasi masuk di dalam aplikasi: hanya opacity + transform, sekali jalan,
+   jadi tidak membebani halaman yang sering di-render ulang.
+   --------------------------------------------------------------------------- */
+@keyframes page-enter {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+}
+.page-enter {
+  animation: page-enter 0.25s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}

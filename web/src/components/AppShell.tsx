@@ -126,7 +126,9 @@ export function AppShell({
 
       <div className="min-w-0 flex-1 overflow-y-auto">
         <ShellContext.Provider value={{ openMenu: () => setMobileOpen(true), logout: () => void handleLogout() }}>
-          {children}
+          <div key={path.split("/")[1] || "home"} className="page-enter min-h-full">
+            {children}
+          </div>
         </ShellContext.Provider>
       </div>
     </div>

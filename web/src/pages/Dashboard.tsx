@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CircleCheck, RefreshCw, Search, TriangleAlert, Users, type LucideIcon } from "lucide-react";
+import { CircleCheck, Download, KeyRound, LayoutGrid, RefreshCw, Search, TriangleAlert, Users, type LucideIcon } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api, type AccountDto, type RunDto } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
@@ -30,6 +30,13 @@ function untilText(ts: number | null) {
   if (s < 86400) return `${Math.floor(s / 3600)}h left`;
   return `${Math.floor(s / 86400)}d left`;
 }
+
+const RUN_ICON: Record<RunDto["kind"], LucideIcon> = {
+  check: CircleCheck,
+  login: KeyRound,
+  "apps-sync": LayoutGrid,
+  "item-fetch": Download,
+};
 
 export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: string) => void; onOpenLogs: () => void }) {
   const isAdmin = useIsAdmin();
@@ -146,9 +153,15 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
       />
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
           <StatCard label="Total accounts" value={summary.total} icon={Users} />
-          <StatCard label="Active" value={summary.valid} icon={CircleCheck} tone="success" />
+          <StatCard
+            label="Active"
+            value={summary.valid}
+            icon={CircleCheck}
+            tone="success"
+            share={summary.total ? summary.valid / summary.total : undefined}
+          />
           <StatCard label="Needs attention" value={summary.error} icon={TriangleAlert} tone={summary.error ? "destructive" : undefined} />
         </div>
 
@@ -282,18 +295,32 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
             </div>
           </CardHeader>
           <CardContent>
-            <ul className="flex flex-col gap-2 text-sm">
-              {runs.slice(0, 8).map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 border-b border-border/60 pb-2 last:border-0">
-                  <span className="truncate text-muted-foreground">
-                    <span className={r.ok ? "text-success-foreground" : "text-destructive"}>
-                      {r.ok ? "✓" : "✗"}
-                    </span>{" "}
-                    <span className="font-medium text-foreground">{r.account_id}</span> · {r.kind} — {r.message}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(r.at)}</span>
-                </li>
-              ))}
+            <ul className="flex flex-col text-sm">
+              {runs.slice(0, 8).map((r) => {
+                const Icon = RUN_ICON[r.kind] ?? CircleCheck;
+                return (
+                  <li key={r.id} className="flex items-center gap-3 border-b border-border/60 py-2.5 first:pt-0 last:border-0 last:pb-0">
+                    <span
+                      className={cn(
+                        "grid size-8 shrink-0 place-content-center rounded-lg",
+                        r.ok ? "bg-secondary text-muted-foreground" : "bg-destructive/10 text-destructive",
+                      )}
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm">
+                        <span className="font-medium text-foreground">{r.account_id}</span>
+                        <span className="text-muted-foreground"> · {r.kind}</span>
+                      </div>
+                      <div className={cn("truncate text-xs", r.ok ? "text-muted-foreground" : "text-destructive")} title={r.message ?? ""}>
+                        {r.message || (r.ok ? "Done" : "Failed")}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{timeAgo(r.at)}</span>
+                  </li>
+                );
+              })}
               {runs.length === 0 && <p className="text-muted-foreground">No activity yet.</p>}
             </ul>
           </CardContent>
@@ -306,19 +333,40 @@ export function Dashboard({ onOpenAccount, onOpenLogs }: { onOpenAccount: (id: s
   );
 }
 
-function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: LucideIcon; tone?: "success" | "destructive" }) {
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  share,
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  tone?: "success" | "destructive";
+  /** 0..1 -- kalau diisi, tampil sebagai bar tipis di bawah angka. */
+  share?: number;
+}) {
   return (
     <Card className="shadow-panel">
-      <CardContent className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-muted-foreground">{label}</span>
-          <span className={cn("text-3xl font-semibold tracking-tight tabular-nums", tone === "destructive" && "text-destructive")}>
+      <CardContent className="flex items-start justify-between gap-3 max-sm:px-3.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-xs leading-tight font-medium text-muted-foreground sm:text-sm">{label}</span>
+          <span className={cn("text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl", tone === "destructive" && "text-destructive")}>
             {value}
           </span>
+          {share !== undefined && (
+            <div className="mt-1 hidden items-center gap-2 sm:flex">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary">
+                <div className="h-full rounded-full bg-success-foreground/70 transition-[width] duration-500" style={{ width: `${share * 100}%` }} />
+              </div>
+              <span className="text-xs tabular-nums text-muted-foreground">{Math.round(share * 100)}%</span>
+            </div>
+          )}
         </div>
         <span
           className={cn(
-            "grid size-11 shrink-0 place-content-center rounded-xl",
+            "hidden size-10 shrink-0 place-content-center rounded-lg sm:grid",
             tone === "success"
               ? "bg-success text-success-foreground"
               : tone === "destructive"
