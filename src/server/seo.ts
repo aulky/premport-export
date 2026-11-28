@@ -5,45 +5,58 @@ import type { FastifyRequest } from "fastify";
 import { config } from "./config.js";
 
 const NAME = "Cookie Scraping Tools";
-const TITLE = `${NAME} – Self-hosted Cookie Export Dashboard`;
+const TITLE = `${NAME} – Cookie Scraper and Cookie-Editor JSON Exporter`;
 const DESCRIPTION =
-  "Self-hosted dashboard that signs in to your accounts, stores session cookies encrypted, and exports them as Cookie-Editor JSON, with user roles and access logs.";
+  "Cookie Scraping Tools keeps accounts signed in, scrapes their session cookies automatically, and exports them as Cookie-Editor JSON you can import into your browser in one click.";
 
-const ABOUT_TITLE = `About ${NAME}: Features and FAQ`;
+const ABOUT_TITLE = `About ${NAME}: Cookie Scraper Features and FAQ`;
 const ABOUT_DESCRIPTION =
-  "Features and answers about Cookie Scraping Tools: automatic sign-in, encrypted cookie storage, Cookie-Editor JSON export, user roles, and access history.";
+  "How Cookie Scraping Tools scrapes session cookies: automatic sign-in, fresh cookies before they expire, Cookie-Editor JSON export, encrypted storage, and access history.";
+
+const KEYWORDS = [
+  "cookie scraping",
+  "cookie scraper",
+  "session cookies",
+  "export cookies",
+  "Cookie-Editor JSON",
+  "import cookies",
+];
 
 // Naikkan angka ?v= kalau gambarnya diganti, supaya cache pratinjau ikut diperbarui.
 const IMAGE = "/og-image.png?v=1";
 const IMAGE_ALT = `${NAME} logo`;
 
 const FEATURES = [
-  "A background worker signs in and checks that each session is still alive",
-  "Cookies are stored in SQLite, encrypted with AES-256-GCM",
+  "Scrapes session cookies automatically after signing in to each account",
+  "Signs in again before a session expires, so cookies stay fresh",
   "Export as Cookie-Editor JSON, ready to import into a browser",
-  "Admin and user accounts with different permissions",
-  "History of sign-ins and cookie downloads with time and IP address",
-  "Self-hosted on your own Linux server with Node.js",
+  "Per-app cookie fetching from the app catalog",
+  "Cookies are encrypted with AES-256-GCM before they are stored",
+  "Admin and user accounts, with a history of sign-ins and cookie downloads",
 ];
 
 const FAQ: [question: string, answer: string][] = [
   [
     `What is ${NAME}?`,
-    "It is a self-hosted web dashboard and background worker that keeps account sessions signed in and exports their cookies as a JSON file.",
+    "A cookie scraping tool: it keeps account sessions signed in, scrapes their cookies, and lets you download them as a JSON file.",
   ],
   [
-    "Which format are the exported cookies in?",
-    "The JSON format of the Cookie-Editor browser extension, so the file can be imported directly.",
+    "Which format are the scraped cookies in?",
+    "The JSON format of the Cookie-Editor browser extension, so the file can be imported directly into your browser.",
+  ],
+  [
+    "How do I use the cookies?",
+    "Install Cookie-Editor, open the target website, then import the downloaded JSON file and reload the page.",
+  ],
+  [
+    "Do the cookies expire?",
+    "Sessions are checked regularly and signed in again before they expire, so the latest download is always fresh.",
   ],
   [
     "How are the cookies protected?",
-    "They are encrypted with AES-256-GCM before they are written to the database, and every download requires a signed-in account.",
+    "They are encrypted with AES-256-GCM before they are stored, and every download requires a signed-in account.",
   ],
-  [
-    "Does it collect cookies from any website?",
-    "No. It works with the account provider it is built for, using accounts configured by the person who runs the server.",
-  ],
-  ["Can anyone sign up?", "No. There is no public sign-up; the administrator creates user accounts."],
+  ["Can anyone sign up?", "No. There is no public sign-up; an administrator creates user accounts."],
 ];
 
 const esc = (s: string) =>
@@ -71,6 +84,7 @@ function headTags(base: string, path: string | null): string {
   return [
     `<title>${esc(title)}</title>`,
     meta("name", "description", description),
+    meta("name", "keywords", KEYWORDS.join(", ")),
     meta("name", "robots", path === null ? "noindex" : "index, follow, max-image-preview:large"),
     path === null ? "" : `<link rel="canonical" href="${esc(url)}" />`,
     `<link rel="icon" href="/favicon.ico" sizes="48x48" />`,
@@ -96,7 +110,9 @@ function headTags(base: string, path: string | null): string {
       name: NAME,
       description: DESCRIPTION,
       applicationCategory: "UtilitiesApplication",
-      operatingSystem: "Linux",
+      applicationSubCategory: "Cookie scraper",
+      operatingSystem: "Web browser",
+      keywords: KEYWORDS.join(", "),
       url: `${base}/`,
       image,
       featureList: FEATURES,
@@ -151,6 +167,12 @@ export function renderAbout(base: string): string {
       <h1>${esc(NAME)}</h1>
       <p>${esc(DESCRIPTION)}</p>
       <a class="button" href="/">Sign in</a>
+      <h2>How it works</h2>
+      <ol>
+        <li>Sign in to the dashboard.</li>
+        <li>Pick an account or app and fetch its cookies.</li>
+        <li>Import the JSON file with Cookie-Editor on the target website, then reload the page.</li>
+      </ol>
       <h2>Features</h2>
       <ul>
         ${FEATURES.map((f) => `<li>${esc(f)}</li>`).join("\n        ")}
