@@ -44,7 +44,8 @@ import { fetchItemCookiesLive, fetchItemCredsLive, fetchListAccountsLive } from 
 import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
-import { refundAttempt, takeAttempt } from "./ratelimit.js";
+import { BusyError, apiLimiter, passwordGate, refundAttempt, requestLimiter, takeAttempt } from "./ratelimit.js";
+import { contentSecurityPolicy } from "./security.js";
 import { renderIndex, renderLlms, renderRobots, renderSitemap, siteUrl } from "./seo.js";
 
 declare module "fastify" {
@@ -68,6 +69,39 @@ const uiDist = join(__dirname, "../../web/dist");
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL ?? "info" },
   trustProxy: config.trustProxy || false,
+  // Semua body API kecil (login, user, pengaturan): tolak yang besar sebelum dibaca.
+  bodyLimit: 16 * 1024,
+  // Klien yang mengirim request sangat pelan (slowloris) diputus setelah 30 detik.
+  // Hanya berlaku untuk MENERIMA request, jadi refresh yang lama tetap aman.
+  requestTimeout: 30_000,
+});
+
+// Lapisan pertama: batas request per IP untuk semua alamat, lalu yang lebih
+// ketat untuk /api. Didaftarkan sebelum hook lain supaya banjir request
+// berhenti di sini, sebelum cek sesi atau database.
+app.addHook("onRequest", async (req, reply) => {
+  const isApi = req.url.startsWith("/api/");
+  const wait = requestLimiter.hit(req.ip) || (isApi ? apiLimiter.hit(req.ip) : 0);
+  if (!wait) return;
+  reply.code(429).header("Retry-After", wait);
+  return isApi
+    ? reply.send({ error: `Too many requests. Try again in ${plural(wait, "second")}.` })
+    : reply.type("text/plain; charset=utf-8").send("Too many requests. Please slow down.");
+});
+
+// Header keamanan di setiap respons; CSP hanya untuk halaman HTML.
+app.addHook("onSend", async (req, reply, payload) => {
+  reply
+    .header("X-Content-Type-Options", "nosniff")
+    .header("X-Frame-Options", "DENY")
+    .header("Referrer-Policy", "strict-origin-when-cross-origin")
+    .header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+    .header("Cross-Origin-Opener-Policy", "same-origin");
+  if (config.secureCookie) reply.header("Strict-Transport-Security", "max-age=31536000");
+  if (typeof payload === "string" && String(reply.getHeader("content-type")).startsWith("text/html")) {
+    reply.header("Content-Security-Policy", contentSecurityPolicy(payload));
+  }
+  return payload;
 });
 
 await app.register(fastifyCookie);
@@ -107,6 +141,9 @@ app.addHook("onRequest", async (req, reply) => {
 app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { config: { access: "public" } }, async (req, reply) => {
   const username = normalizeUsername(req.body?.username);
   const password = req.body?.password;
+  // Username/password yang mustahil valid ditolak tanpa hashing (scrypt mahal
+  // untuk input panjang) -- tetap dihitung sebagai percobaan di bawah.
+  const plausible = username.length > 0 && username.length <= 64 && typeof password === "string" && password.length <= 256;
   const { retryAfterSec, firstBlock } = takeAttempt(req.ip);
   if (retryAfterSec) {
     const message = `Too many failed attempts. Try again in ${plural(Math.ceil(retryAfterSec / 60), "minute")}.`;
@@ -114,7 +151,17 @@ app.post<{ Body: { username?: unknown; password?: unknown } }>("/api/login", { c
     reply.code(429).header("Retry-After", retryAfterSec);
     return { error: message };
   }
-  const auth = username && typeof password === "string" ? await authenticate(username, password) : ({ ok: false, reason: "invalid" } as const);
+  let auth: Awaited<ReturnType<typeof authenticate>>;
+  try {
+    auth = plausible ? await passwordGate(() => authenticate(username, password as string)) : { ok: false, reason: "invalid" };
+  } catch (e) {
+    if (!(e instanceof BusyError)) throw e;
+    // Terlalu banyak login sekaligus (kemungkinan serangan dari banyak IP):
+    // tolak tanpa menyentuh CPU, dan jangan hitung sebagai percobaan gagal.
+    refundAttempt(req.ip);
+    reply.code(503).header("Retry-After", 5);
+    return { error: "The server is busy. Try again in a few seconds." };
+  }
   if (!auth.ok) {
     const message = auth.reason === "expired" ? "This account has expired. Contact the admin." : "Wrong username or password";
     logAccess(req, "login", { ok: false, username, message });
