@@ -139,3 +139,103 @@
 @keyframes drawer-in {
   from { transform: translateX(-100%); }
 }
+
+/* ---------------------------------------------------------------------------
+   Halaman login: latar abstrak beranimasi (pengganti GIF, lihat Login.tsx).
+   Latarnya selalu gelap supaya teks putih di kolom kiri terbaca di kedua tema;
+   kartunya tetap ikut tema (bg-card).
+   --------------------------------------------------------------------------- */
+.login-root {
+  --scene-base: #0a1324;
+  --scene-a: #14b3a9;
+  --scene-b: #4f46e5;
+  --scene-c: #0e7490;
+  background-color: var(--scene-base);
+}
+:root:not(.dark) .login-root {
+  --scene-base: #0d1b33;
+  --scene-a: #19c2b6;
+  --scene-b: #6366f1;
+  --scene-c: #0891b2;
+}
+
+.login-scene {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Aurora: gradien radial besar yang bergeser pelan (tanpa filter blur -- ringan). */
+.login-aurora {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+.login-aurora-a {
+  width: 70rem; height: 46rem;
+  left: -18rem; top: -22rem;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--scene-a) 38%, transparent), transparent);
+  animation: login-aurora-a 40s ease-in-out infinite alternate;
+}
+.login-aurora-b {
+  width: 64rem; height: 44rem;
+  right: -20rem; bottom: -24rem;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--scene-b) 34%, transparent), transparent);
+  animation: login-aurora-b 48s ease-in-out infinite alternate;
+}
+@keyframes login-aurora-a {
+  to { transform: translate3d(10rem, 4rem, 0) scale(1.08); }
+}
+@keyframes login-aurora-b {
+  to { transform: translate3d(-10rem, -4rem, 0) scale(1.06); }
+}
+
+/* Grid tipis yang memudar ke tepi. */
+.login-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 75% 60% at 50% 40%, #000 20%, transparent 75%);
+}
+
+/* Bingkai kartu: garis gradasi tipis yang statis. */
+.login-card {
+  background: linear-gradient(160deg, rgb(94 234 212 / 0.45), rgb(255 255 255 / 0.08) 40%, rgb(129 140 248 / 0.3));
+  box-shadow: 0 30px 80px -20px rgb(2 6 23 / 0.7);
+}
+
+.login-gradient-text {
+  background: linear-gradient(100deg, #5eead4, #a5b4fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.login-rise {
+  animation: login-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.login-rise-delay {
+  animation-delay: 120ms;
+}
+@keyframes login-rise {
+  from { opacity: 0; transform: translateY(16px); }
+}
+
+/* HP: cahaya aurora lebih kecil supaya warnanya tetap terlihat di layar sempit. */
+@media (max-width: 640px) {
+  .login-aurora-a { width: 34rem; height: 26rem; left: -12rem; top: -10rem; }
+  .login-aurora-b { width: 32rem; height: 24rem; right: -12rem; bottom: -10rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-scene *,
+  .login-rise {
+    animation: none !important;
+  }
+}
