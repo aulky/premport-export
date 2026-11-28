@@ -278,15 +278,19 @@ schema.org data that search engines and chat apps read, and serves:
 
 | Address | Content |
 |---|---|
-| `/about` | Public description of the tool, readable without JavaScript |
+| `/` | Landing page for visitors (features, dashboard preview, FAQ), readable without JavaScript. Signed-in users get the dashboard here instead |
+| `/login` | Sign-in page of the dashboard (not indexed) |
+| `/about` | Old address, redirects to `/` |
 | `/robots.txt` | Allows crawling, except `/api/` |
-| `/sitemap.xml` | `/` and `/about` |
+| `/sitemap.xml` | `/` |
 | `/llms.txt` | Summary for AI assistants |
 | `/og-image.png` | Preview image shown when the link is shared |
 | `/favicon.ico`, `/favicon.svg` | Icon shown in browsers and search results |
 
 Set `PUBLIC_URL=https://your-domain.com` in `.env`. Pages inside the app are
-marked `noindex`. The texts are in `src/server/seo.ts`.
+marked `noindex`. The shared texts are in `src/server/seo.ts` and the landing
+page is in `src/server/landing.ts`. With `npm run dev`, the Vite server on
+port 5173 always shows the app; open port 3000 to see the landing page.
 
 Being indexed, ranked, or recommended by a search engine or AI assistant is
 decided by them and cannot be guaranteed. To get started: serve the site over
@@ -301,6 +305,23 @@ HTTPS, then submit the sitemap in Google Search Console and Bing Webmaster Tools
   clears it. Behind a proxy such as Cloudflare, make sure the real visitor IP
   reaches the app (see [Access history](#access-history)), otherwise visitors
   share one limit.
+- Flood protection, all in memory and per IP (one /64 for IPv6), answered with
+  `429` and a `Retry-After` header:
+  - 600 requests per minute to any address (pages, files, API);
+  - 240 requests per minute to `/api/*`; normal dashboard use needs a few dozen.
+- Password checks (scrypt) are CPU-heavy, so at most 2 run at the same time and
+  20 more may wait. Beyond that, sign-ins get `503` ("server busy") right away
+  without being counted as failed attempts. This keeps the server responsive
+  when a sign-in flood comes from many IPs at once. Sign-ins with a username
+  over 64 or a password over 256 characters are refused without hashing.
+- Request bodies over 16 KB are refused with `413`, and clients that take more
+  than 30 seconds to send a request are disconnected.
+- Every response carries security headers (`X-Content-Type-Options`,
+  `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`,
+  `Cross-Origin-Opener-Policy`, and `Strict-Transport-Security` when
+  `COOKIE_SECURE=true`). HTML pages also get a Content-Security-Policy that
+  allows inline scripts only by their SHA-256 hash, so injected markup (such as
+  an app note from the provider) cannot run scripts (`src/server/security.ts`).
 - Every `/api/*` endpoint except `/api/login` requires a signed-in session, and
   is admin-only unless explicitly opened to users.
 - Sessions are short-lived (15 minutes by default, admin-configurable, see
