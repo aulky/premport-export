@@ -4,14 +4,10 @@
 import type { FastifyRequest } from "fastify";
 import { config } from "./config.js";
 
-const NAME = "Cookie Scraping Tools";
+export const NAME = "Cookie Scraping Tools";
 const TITLE = `${NAME} – Cookie Scraper and Cookie-Editor JSON Exporter`;
-const DESCRIPTION =
+export const DESCRIPTION =
   "Cookie Scraping Tools keeps accounts signed in, scrapes their session cookies automatically, and exports them as Cookie-Editor JSON you can import into your browser in one click.";
-
-const ABOUT_TITLE = `About ${NAME}: Cookie Scraper Features and FAQ`;
-const ABOUT_DESCRIPTION =
-  "How Cookie Scraping Tools scrapes session cookies: automatic sign-in, fresh cookies before they expire, Cookie-Editor JSON export, encrypted storage, and access history.";
 
 const KEYWORDS = [
   "cookie scraping",
@@ -24,9 +20,9 @@ const KEYWORDS = [
 
 // Naikkan angka ?v= kalau gambarnya diganti, supaya cache pratinjau ikut diperbarui.
 const IMAGE = "/og-image.png?v=1";
-const IMAGE_ALT = `${NAME} logo`;
+export const IMAGE_ALT = `${NAME} logo`;
 
-const FEATURES = [
+export const FEATURES = [
   "Scrapes session cookies automatically after signing in to each account",
   "Signs in again before a session expires, so cookies stay fresh",
   "Export as Cookie-Editor JSON, ready to import into a browser",
@@ -35,7 +31,7 @@ const FEATURES = [
   "Admin and user accounts, with a history of sign-ins and cookie downloads",
 ];
 
-const FAQ: [question: string, answer: string][] = [
+export const FAQ: [question: string, answer: string][] = [
   [
     `What is ${NAME}?`,
     "A cookie scraping tool: it keeps account sessions signed in, scrapes their cookies, and lets you download them as a JSON file.",
@@ -56,13 +52,21 @@ const FAQ: [question: string, answer: string][] = [
     "How are the cookies protected?",
     "They are encrypted with AES-256-GCM before they are stored, and every download requires a signed-in account.",
   ],
+  [
+    "Which apps are supported?",
+    "The app catalog lists the apps the provider offers. Each app shows whether its cookies, account credentials, or an account list can be fetched.",
+  ],
+  [
+    "What happens if I sign in on another device?",
+    "The previous session ends right away, so one account cannot be used in two places at once.",
+  ],
   ["Can anyone sign up?", "No. There is no public sign-up; an administrator creates user accounts."],
 ];
 
-const esc = (s: string) =>
+export const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-const jsonLd = (data: object) =>
+export const jsonLd = (data: object) =>
   `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
 
 /** Alamat publik situs: PUBLIC_URL kalau diisi, kalau tidak dari header request. */
@@ -74,10 +78,10 @@ export function siteUrl(req: FastifyRequest): string {
 }
 
 /** Isi <head>. `path` null = halaman privat: tetap punya pratinjau, tapi tidak diindeks. */
-function headTags(base: string, path: string | null): string {
+export function headTags(base: string, path: string | null): string {
   const url = `${base}${path ?? "/"}`;
-  const title = path === "/about" ? ABOUT_TITLE : TITLE;
-  const description = path === "/about" ? ABOUT_DESCRIPTION : DESCRIPTION;
+  const title = TITLE;
+  const description = DESCRIPTION;
   const image = `${base}${IMAGE}`;
   const meta = (attr: "name" | "property", key: string, value: string) =>
     `<meta ${attr}="${key}" content="${esc(value)}" />`;
@@ -131,60 +135,8 @@ export function renderIndex(html: string, base: string, path: string | null): st
     .replace(
       '<div id="root"></div>',
       () =>
-        `<div id="root"></div>\n    <noscript><h1>${esc(NAME)}</h1><p>${esc(DESCRIPTION)}</p><p><a href="/about">About ${esc(NAME)}</a></p></noscript>`,
+        `<div id="root"></div>\n    <noscript><h1>${esc(NAME)}</h1><p>${esc(DESCRIPTION)}</p><p><a href="/">About ${esc(NAME)}</a></p></noscript>`,
     );
-}
-
-/** Halaman publik /about: HTML biasa, terbaca tanpa JavaScript. */
-export function renderAbout(base: string): string {
-  const faqLd = jsonLd({
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
-  });
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#008c8d" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    ${headTags(base, "/about")}
-    ${faqLd}
-    <style>
-      body { margin: 0; font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #f4f6f9; }
-      main { max-width: 42rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
-      h1 { margin: 1rem 0 0.5rem; font-size: 2rem; line-height: 1.2; color: #0b7677; }
-      h2 { margin: 2.25rem 0 0.5rem; font-size: 1.25rem; }
-      h3 { margin: 1.25rem 0 0.25rem; font-size: 1rem; }
-      p { margin: 0.5rem 0; }
-      a.button { display: inline-block; margin-top: 1rem; padding: 0.6rem 1.4rem; border-radius: 0.6rem; background: #0b7677; color: #fff; text-decoration: none; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <img src="/favicon.svg" alt="${esc(IMAGE_ALT)}" width="72" height="72" />
-      <h1>${esc(NAME)}</h1>
-      <p>${esc(DESCRIPTION)}</p>
-      <a class="button" href="/">Sign in</a>
-      <h2>How it works</h2>
-      <ol>
-        <li>Sign in to the dashboard.</li>
-        <li>Pick an account or app and fetch its cookies.</li>
-        <li>Import the JSON file with Cookie-Editor on the target website, then reload the page.</li>
-      </ol>
-      <h2>Features</h2>
-      <ul>
-        ${FEATURES.map((f) => `<li>${esc(f)}</li>`).join("\n        ")}
-      </ul>
-      <h2>Questions and answers</h2>
-      ${FAQ.map(([q, a]) => `<h3>${esc(q)}</h3>\n      <p>${esc(a)}</p>`).join("\n      ")}
-      <h2>Responsible use</h2>
-      <p>Use it only with accounts you are allowed to use, and follow the terms of service of the provider.</p>
-    </main>
-  </body>
-</html>
-`;
 }
 
 export const renderRobots = (base: string) => `User-agent: *
@@ -197,7 +149,6 @@ Sitemap: ${base}/sitemap.xml
 export const renderSitemap = (base: string) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${esc(base)}/</loc></url>
-  <url><loc>${esc(base)}/about</loc></url>
 </urlset>
 `;
 
@@ -216,6 +167,6 @@ ${FAQ.map(([q, a]) => `### ${q}\n\n${a}`).join("\n\n")}
 
 ## Links
 
-- [About](${base}/about)
-- [Sign in](${base}/)
+- [Home and features](${base}/)
+- [Sign in](${base}/login)
 `;

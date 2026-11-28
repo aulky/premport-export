@@ -1,10 +1,11 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { assertServerConfig, config } from "./config.js";
+import { renderLanding } from "./landing.js";
 import { makeSession, verifySession } from "./crypto.js";
 import {
   authenticate,
@@ -44,7 +45,7 @@ import { refreshAccount } from "./refresh.js";
 import { logRun } from "./db.js";
 import { KEEP_ACCESS_LOGS, listAccessLogs, logAccess } from "./access.js";
 import { refundAttempt, takeAttempt } from "./ratelimit.js";
-import { renderAbout, renderIndex, renderLlms, renderRobots, renderSitemap, siteUrl } from "./seo.js";
+import { renderIndex, renderLlms, renderRobots, renderSitemap, siteUrl } from "./seo.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -572,17 +573,33 @@ async function sendIndex(req: FastifyRequest, reply: FastifyReply, path: string 
     .send(renderIndex(html, siteUrl(req), path));
 }
 
-app.get("/", (req, reply) => sendIndex(req, reply, "/"));
+// "/": landing page untuk pengunjung, aplikasi untuk yang sudah login. Halaman
+// login aplikasi ada di /login (lewat setNotFoundHandler, tidak diindeks).
+app.get("/", async (req, reply) => {
+  reply.header("Vary", "Cookie").header("Cache-Control", "no-cache");
+  if (principalFor(verifySession(req.cookies[COOKIE_NAME]))) return sendIndex(req, reply, "/");
+  return reply.type("text/html; charset=utf-8").send(renderLanding(siteUrl(req), await uiFonts()));
+});
+// Alamat lama: isinya sekarang bagian dari landing page.
+app.get("/about", (_req, reply) => reply.redirect("/", 301));
 app.get("/index.html", (req, reply) => sendIndex(req, reply, "/"));
 
 const publicPages = [
-  ["/about", "text/html; charset=utf-8", renderAbout],
   ["/robots.txt", "text/plain; charset=utf-8", renderRobots],
   ["/sitemap.xml", "application/xml; charset=utf-8", renderSitemap],
   ["/llms.txt", "text/plain; charset=utf-8", renderLlms],
 ] as const;
 for (const [url, type, render] of publicPages) {
   app.get(url, async (req, reply) => reply.type(type).send(render(siteUrl(req))));
+}
+/** Font Geist dari build UI (namanya ber-hash), supaya landing page memakai huruf yang sama dengan aplikasi. */
+async function uiFonts(): Promise<{ sans?: string; mono?: string }> {
+  const files = await readdir(join(uiDist, "assets")).catch(() => [] as string[]);
+  const find = (re: RegExp) => {
+    const f = files.find((name) => re.test(name));
+    return f && `/assets/${f}`;
+  };
+  return { sans: find(/^geist-latin-wght-normal-[\w-]+\.woff2$/), mono: find(/^geist-mono-latin-wght-normal-[\w-]+\.woff2$/) };
 }
 
 app.setNotFoundHandler((req, reply) => {

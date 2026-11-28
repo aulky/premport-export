@@ -73,13 +73,13 @@ export function Login({ onSuccess, notice }: { onSuccess: (me: MeDto) => void; n
       <AnimatedBackdrop />
 
       <header className="relative z-10 flex items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
-        <div className="flex items-center gap-3">
+        <a href="/" className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white" aria-label={`${APP_NAME} home`}>
           <Logo className="size-10 drop-shadow-lg" />
           <div className="leading-tight">
             <div className="text-[15px] font-semibold tracking-tight">Cookie Scraping</div>
             <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/60">Tools</div>
           </div>
-        </div>
+        </a>
         <ThemeToggle />
       </header>
 
@@ -206,7 +206,7 @@ export function Login({ onSuccess, notice }: { onSuccess: (me: MeDto) => void; n
 
               <div className="mt-7 flex flex-col items-center gap-1 border-t border-border pt-5 text-center text-sm text-muted-foreground">
                 <span>Accounts are created by an administrator.</span>
-                <a href="/about" className="font-medium text-brand underline-offset-4 hover:underline">
+                <a href="/" className="font-medium text-brand underline-offset-4 hover:underline">
                   About {APP_NAME}
                 </a>
               </div>

@@ -40,6 +40,8 @@ export function App() {
     signedIn.current = false;
     setSessionNotice("Your session has expired. Please sign in again.");
     setMe(null);
+    window.history.replaceState({}, "", "/login");
+    setPath("/login");
   }, []);
 
   useEffect(() => {
@@ -71,8 +73,19 @@ export function App() {
   function handleLogout() {
     setSessionNotice(null);
     setMe(null);
-    navigate("/");
+    navigate("/login");
   }
+
+  // Halaman login ada di /login (landing page publik di "/"). Samakan URL dengan
+  // yang tampil: belum login -> /login, sudah login tapi masih di /login -> "/".
+  useEffect(() => {
+    if (me === undefined) return;
+    const want = me ? (path === "/login" ? "/" : null) : path === "/login" ? null : "/login";
+    if (want) {
+      window.history.replaceState({}, "", want);
+      setPath(want);
+    }
+  }, [me, path]);
 
   if (me === undefined) return null;
   if (!me) {
